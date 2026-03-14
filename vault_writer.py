@@ -1,12 +1,13 @@
 """
 Écriture dans le vault Obsidian — toutes les fonctions write_* et update_*.
-Utilitaires : sanitize(), next_chapter_number().
+Utilitaires : sanitize(), next_chapter_number(), _update_date_modification().
 """
 
 import re
 from pathlib import Path
 
 from config import (
+    TODAY,
     VAULT_PATH,
     AUTEURS_DIR,
     MOUVEMENTS_DIR,
@@ -22,6 +23,8 @@ from markdown_builder import (
     build_mouvement_md,
     build_personnage_md,
     build_index_md,
+    build_personnages_livre_md,
+    build_themes_livre_md,
     build_citations_header,
     build_bibliotheque_header,
 )
@@ -46,6 +49,20 @@ def next_chapter_number(chapitres_dir: Path) -> int:
         if (m := re.match(r"Ch_(\d+)", f.stem))
     ]
     return max(nums) + 1 if nums else 1
+
+
+def _update_date_modification(path: Path) -> None:
+    """Met à jour date_modification dans le frontmatter YAML du fichier."""
+    content = path.read_text(encoding="utf-8")
+    updated = re.sub(
+        r"^(date_modification:\s*)\S+",
+        rf"\g<1>{TODAY}",
+        content,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if updated != content:
+        path.write_text(updated, encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +99,7 @@ def update_index(data: dict, ch_num: int) -> Path:
     if new_line not in content:
         content = content.replace("<!-- chapitres -->", f"<!-- chapitres -->\n{new_line}")
         index_path.write_text(content, encoding="utf-8")
+        _update_date_modification(index_path)
 
     return index_path
 
@@ -91,14 +109,18 @@ def update_personnages_livre(data: dict) -> Path:
     path = LIVRES_DIR / sanitize(data["titre"]) / "Personnages.md"
 
     if not path.exists():
-        path.write_text(f"# Personnages — {data['titre']}\n\n", encoding="utf-8")
+        path.write_text(
+            build_personnages_livre_md(data["titre"], data["auteur"]),
+            encoding="utf-8",
+        )
 
-    existing = path.read_text(encoding="utf-8")
-    nouveaux = [p for p in data.get("personnages", []) if f"[[{p}]]" not in existing]
+    content  = path.read_text(encoding="utf-8")
+    nouveaux = [p for p in data.get("personnages", []) if f"[[{p}]]" not in content]
     if nouveaux:
-        with path.open("a", encoding="utf-8") as f:
-            for p in nouveaux:
-                f.write(f"- [[{p}]]\n")
+        new_content = content + "".join(f"- [[{p}]]\n" for p in nouveaux)
+        path.write_text(new_content, encoding="utf-8")
+        _update_date_modification(path)
+
     return path
 
 
@@ -107,14 +129,19 @@ def update_themes(data: dict) -> Path:
     path = LIVRES_DIR / sanitize(data["titre"]) / "Themes.md"
 
     if not path.exists():
-        path.write_text(f"# Thèmes — {data['titre']}\n\n", encoding="utf-8")
+        path.write_text(
+            build_themes_livre_md(data["titre"], data["auteur"]),
+            encoding="utf-8",
+        )
 
-    existing = path.read_text(encoding="utf-8")
-    nouveaux = [t for t in data.get("themes", []) if t not in existing]
+    content  = path.read_text(encoding="utf-8")
+    # Vérifie la forme stockée (#theme_avec_underscores) pour éviter les doublons
+    nouveaux = [t for t in data.get("themes", []) if f"#{'_'.join(t.split())}" not in content]
     if nouveaux:
-        with path.open("a", encoding="utf-8") as f:
-            for t in nouveaux:
-                f.write(f"- #{'_'.join(t.split())}\n")
+        new_content = content + "".join(f"- #{'_'.join(t.split())}\n" for t in nouveaux)
+        path.write_text(new_content, encoding="utf-8")
+        _update_date_modification(path)
+
     return path
 
 
@@ -130,13 +157,13 @@ def update_citations(data: dict, ch_num: int) -> Path:
         path.write_text(build_citations_header(data["titre"], data["auteur"]), encoding="utf-8")
 
     if citations:
-        existing  = path.read_text(encoding="utf-8")
-        nouvelles = [c for c in citations if c not in existing]
+        content   = path.read_text(encoding="utf-8")
+        nouvelles = [c for c in citations if c not in content]
         if nouvelles:
-            with path.open("a", encoding="utf-8") as f:
-                f.write(f"\n## {chapitre}\n\n")
-                for c in nouvelles:
-                    f.write(f"> {c}\n\n")
+            new_content = content + f"\n## {chapitre}\n\n" + "".join(f"> {c}\n\n" for c in nouvelles)
+            path.write_text(new_content, encoding="utf-8")
+            _update_date_modification(path)
+
     return path
 
 
@@ -214,5 +241,6 @@ def update_bibliotheque(data: dict) -> Path:
     if new_line not in content:
         content = content.replace("<!-- livres -->", f"<!-- livres -->\n{new_line}")
         BIBLIOTHEQUE.write_text(content, encoding="utf-8")
+        _update_date_modification(BIBLIOTHEQUE)
 
     return BIBLIOTHEQUE

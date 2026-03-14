@@ -1,9 +1,34 @@
 """
 Constructeurs Markdown — toutes les fonctions build_* et l'utilitaire fm().
 Aucune écriture disque ici : retourne uniquement des chaînes.
+
+Format Obsidian Properties / Dataview :
+  - Tags hiérarchiques sans # (type/, theme/, mouvement/, statut/)
+  - Wikilinks toujours entre guillemets doubles
+  - Dates YYYY-MM-DD non quotées
+  - aliases: [] toujours présent
+  - Pas de YAML imbriqué
 """
 
+import re
+
 from config import TODAY
+
+
+# ---------------------------------------------------------------------------
+# Helpers internes
+# ---------------------------------------------------------------------------
+
+def _slug(s: str) -> str:
+    """Convertit une chaîne en slug pour tags hiérarchiques (minuscules, espaces→_)."""
+    return re.sub(r"\s+", "_", s.strip().lower()) if s else "inconnu"
+
+
+def _yaml_scalar(value: str) -> str:
+    """Date YYYY-MM-DD → non quotée ; tout le reste → entre guillemets doubles."""
+    if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
+        return value
+    return f'"{value}"'
 
 
 # ---------------------------------------------------------------------------
@@ -11,11 +36,45 @@ from config import TODAY
 # ---------------------------------------------------------------------------
 
 def fm(tags: list, **kwargs) -> str:
-    """Génère un bloc frontmatter YAML Obsidian."""
-    tag_str = ", ".join(tags)
-    lines   = ["---", f"tags: [{tag_str}]"]
+    """
+    Génère un bloc frontmatter YAML compatible Obsidian Properties et Dataview.
+
+    Conventions :
+    - tags     : liste de tags hiérarchiques sans #  ex. ["type/chapitre", "theme/amour"]
+    - aliases  : toujours présent, vide par défaut   ex. aliases=["alias1"]
+    - Wikilinks dans les valeurs scalaires → détectés et encadrés de guillemets
+    - Dates YYYY-MM-DD → non quotées
+    - Listes → YAML block list ; items wikilink entre guillemets
+    """
+    lines = ["---"]
+
+    # 1. Tags — bloc YAML, jamais de #
+    lines.append("tags:")
+    for tag in tags:
+        lines.append(f"  - {tag}")
+
+    # 2. aliases — toujours présent
+    aliases = kwargs.pop("aliases", [])
+    if aliases:
+        lines.append("aliases:")
+        for a in aliases:
+            lines.append(f'  - "{a}"')
+    else:
+        lines.append("aliases: []")
+
+    # 3. Autres propriétés
     for key, value in kwargs.items():
-        lines.append(f'{key}: "{value}"')
+        if isinstance(value, list):
+            if not value:
+                lines.append(f"{key}: []")
+            else:
+                lines.append(f"{key}:")
+                for item in value:
+                    s = str(item)
+                    lines.append(f'  - "{s}"' if "[[" in s else f"  - {s}")
+        else:
+            lines.append(f"{key}: {_yaml_scalar(str(value))}")
+
     lines.append("---")
     return "\n".join(lines)
 
@@ -36,16 +95,25 @@ def build_chapter_md(data: dict, ch_num: int) -> str:
     mvt_nom     = mouvement.get("nom", "")
     ch_label    = f"Ch_{ch_num:02d}"
 
-    theme_tags  = " ".join(f"#{'_'.join(t.split())}" for t in themes)
-    perso_links = "\n".join(f"- [[{p}]]" for p in personnages) or "_Aucun personnage identifié._"
+    tags = (
+        ["type/chapitre", "type/lecture"]
+        + [f"theme/{_slug(t)}" for t in themes]
+        + ([f"mouvement/{_slug(mvt_nom)}"] if mvt_nom else [])
+        + ["statut/importé"]
+    )
 
     header = fm(
-        ["lecture", "chapitre"] + [t.replace(" ", "_") for t in themes],
-        auteur=f"[[{auteur}]]",
+        tags,
         titre=f"[[{titre}]]",
-        mouvement=f"[[{mvt_nom}]]",
-        date_import=TODAY,
+        auteur=f"[[{auteur}]]",
+        mouvement=f"[[{mvt_nom}]]" if mvt_nom else "",
+        chapitre=chapitre,
+        date_creation=TODAY,
+        date_modification=TODAY,
     )
+
+    theme_tags  = " ".join(f"#{'_'.join(t.split())}" for t in themes)
+    perso_links = "\n".join(f"- [[{p}]]" for p in personnages) or "_Aucun personnage identifié._"
 
     return "\n".join([
         header, "",
@@ -86,16 +154,25 @@ def build_auteur_md(fiche: dict, mouvement_nom: str, auteurs_lies: list) -> str:
     oeuvres    = fiche.get("oeuvres_majeures", [])
     influences = fiche.get("influences", [])
 
+    tags = [
+        "type/auteur",
+        *(([f"mouvement/{_slug(mouvement_nom)}"] if mouvement_nom else [])),
+        "statut/importé",
+    ]
+
+    header = fm(
+        tags,
+        nom=nom,
+        dates=dates,
+        mouvement=f"[[{mouvement_nom}]]" if mouvement_nom else "",
+        auteurs_lies=[f"[[{a}]]" for a in auteurs_lies],
+        date_creation=TODAY,
+        date_modification=TODAY,
+    )
+
     oeuvres_md    = "\n".join(f"- {o}" for o in oeuvres)    or "_Non renseigné._"
     influences_md = "\n".join(f"- {i}" for i in influences) or "_Non renseigné._"
     lies_md       = "\n".join(f"- [[{a}]]" for a in auteurs_lies) or "_Aucun._"
-
-    header = fm(
-        ["auteur"],
-        dates=dates,
-        mouvement=f"[[{mouvement_nom}]]",
-        date_creation=TODAY,
-    )
 
     return "\n".join([
         header, "",
@@ -126,13 +203,19 @@ def build_mouvement_md(mouvement: dict, auteur: str, auteurs_lies: list) -> str:
     epoque   = mouvement.get("epoque", "")
     desc     = mouvement.get("description", "")
     contexte = mouvement.get("contexte_historique", "")
-    lies_md  = "\n".join(f"- [[{a}]]" for a in [auteur] + auteurs_lies) or "_Aucun._"
+
+    tous_auteurs = [auteur] + auteurs_lies
 
     header = fm(
-        ["mouvement"],
+        ["type/mouvement", "statut/importé"],
+        nom=nom,
         epoque=epoque,
+        auteurs=[f"[[{a}]]" for a in tous_auteurs],
         date_creation=TODAY,
+        date_modification=TODAY,
     )
+
+    lies_md = "\n".join(f"- [[{a}]]" for a in tous_auteurs) or "_Aucun._"
 
     return "\n".join([
         header, "",
@@ -154,10 +237,12 @@ def build_mouvement_md(mouvement: dict, auteur: str, auteurs_lies: list) -> str:
 
 def build_personnage_md(nom: str, description: str, titre: str, auteur: str) -> str:
     header = fm(
-        ["personnage"],
+        ["type/personnage", "statut/importé"],
+        nom=nom,
         livre=f"[[{titre}]]",
         auteur=f"[[{auteur}]]",
         date_creation=TODAY,
+        date_modification=TODAY,
     )
 
     return "\n".join([
@@ -172,15 +257,23 @@ def build_personnage_md(nom: str, description: str, titre: str, auteur: str) -> 
 
 
 # ---------------------------------------------------------------------------
-# Index du livre
+# Index du livre (00_Index.md)
 # ---------------------------------------------------------------------------
 
 def build_index_md(titre: str, auteur: str, mouvement_nom: str, contexte: str) -> str:
+    tags = [
+        "type/livre",
+        *(([f"mouvement/{_slug(mouvement_nom)}"] if mouvement_nom else [])),
+        "statut/importé",
+    ]
+
     header = fm(
-        ["livre"],
+        tags,
+        titre=f"[[{titre}]]",
         auteur=f"[[{auteur}]]",
-        mouvement=f"[[{mouvement_nom}]]",
+        mouvement=f"[[{mouvement_nom}]]" if mouvement_nom else "",
         date_creation=TODAY,
+        date_modification=TODAY,
     )
 
     return "\n".join([
@@ -204,19 +297,50 @@ def build_index_md(titre: str, auteur: str, mouvement_nom: str, contexte: str) -
 
 
 # ---------------------------------------------------------------------------
-# En-têtes des fichiers append
+# En-têtes des fichiers Personnages.md et Themes.md par livre
+# ---------------------------------------------------------------------------
+
+def build_personnages_livre_md(titre: str, auteur: str) -> str:
+    header = fm(
+        ["type/personnages-livre", "statut/importé"],
+        titre=f"[[{titre}]]",
+        auteur=f"[[{auteur}]]",
+        date_creation=TODAY,
+        date_modification=TODAY,
+    )
+    return f"{header}\n\n# Personnages — {titre}\n\n"
+
+
+def build_themes_livre_md(titre: str, auteur: str) -> str:
+    header = fm(
+        ["type/themes-livre", "statut/importé"],
+        titre=f"[[{titre}]]",
+        auteur=f"[[{auteur}]]",
+        date_creation=TODAY,
+        date_modification=TODAY,
+    )
+    return f"{header}\n\n# Thèmes — {titre}\n\n"
+
+
+# ---------------------------------------------------------------------------
+# En-têtes des fichiers Citations et Bibliothèque
 # ---------------------------------------------------------------------------
 
 def build_citations_header(titre: str, auteur: str) -> str:
     header = fm(
-        ["citations"],
-        livre=f"[[{titre}]]",
+        ["type/citations", "statut/importé"],
+        titre=f"[[{titre}]]",
         auteur=f"[[{auteur}]]",
         date_creation=TODAY,
+        date_modification=TODAY,
     )
     return f"{header}\n\n# Citations — {titre}\n\n"
 
 
 def build_bibliotheque_header() -> str:
-    header = fm(["bibliotheque"], date_creation=TODAY)
+    header = fm(
+        ["type/bibliotheque", "statut/importé"],
+        date_creation=TODAY,
+        date_modification=TODAY,
+    )
     return f"{header}\n\n# 📚 Bibliothèque\n\n<!-- livres -->\n"
