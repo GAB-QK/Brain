@@ -151,6 +151,8 @@ date_modification: 2026-03-14  # mis à jour automatiquement à chaque append
 - [x] Frontmatter 100% compatible Obsidian Properties / Dataview : tags hiérarchiques, wikilinks quotés, dates non quotées, `aliases: []`, `date_modification` mis à jour à chaque append
 - [x] Frontmatter sur `Personnages.md` et `Themes.md` (précédemment sans frontmatter)
 - [x] Correction du bug de dédoublonnage des thèmes (vérification sur la forme stockée `#theme_slug`)
+- [x] Champ `avertissements` dans le JSON Claude — anomalies détectées dans la note (personnage anachronique, confusion d'auteur, etc.), affiché dans le terminal avant confirmation
+- [x] Verbosité proportionnelle : `resume` (5-10 phrases si riche), `contexte_historique_oeuvre`, `mouvement_litteraire.description/contexte_historique`, `fiche_auteur.biographie` guidés par des règles de profondeur
 
 ## Prochaines étapes
 

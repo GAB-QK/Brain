@@ -22,7 +22,7 @@ SYSTEM_PROMPT = textwrap.dedent("""\
       "auteur": "Prénom Nom de l'auteur",
       "titre": "Titre complet de l'œuvre",
       "chapitre_ou_passage": "Ex : Partie I, Chapitre 3 — ou une courte description",
-      "resume": "Résumé du chapitre ou du passage (3-8 phrases)",
+      "resume": "Résumé du chapitre ou du passage",
       "personnages": ["Personnage 1", "Personnage 2"],
       "personnages_details": [
         {"nom": "Personnage 1", "description": "Description courte (1-2 phrases)"},
@@ -33,19 +33,20 @@ SYSTEM_PROMPT = textwrap.dedent("""\
       "mouvement_litteraire": {
         "nom": "Nom du mouvement",
         "epoque": "Ex : XIXe siècle, 1830-1880",
-        "description": "Description du mouvement (2-3 phrases)",
-        "contexte_historique": "Époque et contexte historique du mouvement (2-3 phrases)"
+        "description": "Description du mouvement",
+        "contexte_historique": "Contexte historique du mouvement"
       },
-      "contexte_historique_oeuvre": "Époque, événements contemporains à l'écriture (3-5 phrases)",
+      "contexte_historique_oeuvre": "Contexte historique de l'œuvre",
       "fiche_auteur": {
         "nom": "Prénom Nom",
         "dates": "AAAA-AAAA",
-        "biographie": "Courte biographie (3-5 phrases)",
+        "biographie": "Biographie de l'auteur",
         "oeuvres_majeures": ["Titre 1", "Titre 2", "Titre 3"],
         "influences": ["Auteur ou courant influent 1", "Auteur influent 2"],
         "courant": "Nom du mouvement littéraire auquel il appartient"
       },
-      "auteurs_lies": ["Auteur du même mouvement 1", "Auteur lié 2"]
+      "auteurs_lies": ["Auteur du même mouvement 1", "Auteur lié 2"],
+      "avertissements": ["Description courte de l'anomalie détectée"]
     }
 
     Règles impératives :
@@ -56,6 +57,30 @@ SYSTEM_PROMPT = textwrap.dedent("""\
     - personnages_details doit contenir une entrée pour chaque élément de personnages.
     - Les citations doivent être des phrases réelles tirées de l'œuvre, ou,
       à défaut, des phrases représentatives du style de l'auteur.
+
+    Règles de verbosité — la longueur doit être proportionnelle à la richesse du
+    sujet. Pas de verbosité artificielle, mais pas de troncature non plus :
+
+    - resume : 5 à 10 phrases si le passage est riche. Capture les nuances
+      narratives et psychologiques importantes, pas seulement l'action.
+    - contexte_historique_oeuvre : cite les événements politiques, sociaux ou
+      culturels contemporains à l'écriture qui éclairent directement le texte.
+      Ne pas se limiter à la date de publication.
+    - mouvement_litteraire.description : explique ce qui distingue ce mouvement
+      des autres — ses caractéristiques stylistiques et thématiques propres.
+    - mouvement_litteraire.contexte_historique : relie le mouvement aux grandes
+      tensions historiques de son époque (révolutions, industrialisation, etc.).
+    - fiche_auteur.biographie : inclure les événements de vie qui ont directement
+      influencé l'œuvre en question, pas seulement un résumé générique.
+
+    Règles pour le champ avertissements :
+    - Signaler UNIQUEMENT les vraies anomalies détectées dans la note brute :
+        * Personnage anachronique par rapport à l'époque de l'œuvre
+        * Date ou fait historique incompatible avec l'auteur ou l'œuvre
+        * Confusion probable entre deux œuvres ou deux auteurs
+        * Citation qui ne correspond pas au style ou à l'époque
+    - Si aucune anomalie n'est détectée, retourner une liste vide [].
+    - Ne pas signaler des choses normales. Ne pas inventer de problèmes.
 """)
 
 

@@ -35,8 +35,16 @@ def preview_and_confirm(data: dict, ch_num: int) -> bool:
     print(f"    ?  Mouvements/{mvt_safe}.md  (créé si absent)")
     for p in personnages:
         print(f"    ?  Personnages/{sanitize(p)}.md  (créé si absent)")
-    print("=" * 72 + "\n")
+    print("=" * 72)
 
+    avertissements = data.get("avertissements", [])
+    if avertissements:
+        print()
+        print("⚠️  Points à vérifier dans ta note :")
+        for a in avertissements:
+            print(f"  - {a}")
+
+    print()
     while True:
         ans = input("Enregistrer dans le vault Obsidian ? [o/n] : ").strip().lower()
         if ans in ("o", "oui", "y", "yes"):
