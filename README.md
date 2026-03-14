@@ -49,12 +49,12 @@ VAULT_PATH=/chemin/vers/ton/vault/Obsidian
 
 **Saisie interactive** (Ctrl+D pour terminer) :
 ```bash
-python carnet_lecture.py
+python main.py
 ```
 
 **Depuis un fichier texte** :
 ```bash
-python carnet_lecture.py ma_note.txt
+python main.py ma_note.txt
 ```
 
 Le script affiche un aperçu des fichiers qui seront créés ou mis à jour, puis demande une confirmation avant d'écrire quoi que ce soit dans le vault.
@@ -89,6 +89,21 @@ Littérature/
 Tous les fichiers contiennent un **frontmatter YAML** (tags, auteur, date d'import…) pour les requêtes Dataview dans Obsidian.
 
 Tous les liens internes utilisent la syntaxe `[[Nom]]` sans extension.
+
+---
+
+## Structure du code
+
+```
+Brain/
+├── main.py              ← point d'entrée : python main.py
+├── config.py            ← constantes et chemins vault
+├── claude_api.py        ← appel API + prompt système
+├── markdown_builder.py  ← génération du Markdown
+├── vault_writer.py      ← écriture dans Obsidian
+├── input_handler.py     ← lecture note (texte, futur: audio, OCR)
+└── cli.py               ← affichage terminal et confirmation
+```
 
 ---
 

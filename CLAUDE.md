@@ -24,6 +24,27 @@ VAULT_PATH=/chemin/vers/vault/Obsidian
 
 ---
 
+## Architecture du code
+
+```
+Brain/
+├── main.py              ← point d'entrée, orchestration uniquement
+├── config.py            ← constantes MODEL, VAULT_PATH et chemins, chargement .env
+├── claude_api.py        ← SYSTEM_PROMPT, call_claude(), gestion erreurs API
+├── markdown_builder.py  ← toutes les fonctions build_*() et fm()
+├── vault_writer.py      ← toutes les fonctions write_*() et update_*(), sanitize()
+├── input_handler.py     ← collect_raw_note() + stubs Whisper / Tesseract
+└── cli.py               ← preview_and_confirm(), print_report()
+```
+
+**Ordre des dépendances (pas d'import circulaire) :**
+`config` ← `markdown_builder` ← `vault_writer` ← `main`
+`config` ← `claude_api` ← `main`
+`config` + `vault_writer` ← `cli` ← `main`
+`input_handler` ← `main` (aucune dépendance projet)
+
+---
+
 ## Architecture du vault Obsidian
 
 Tout est créé sous `VAULT_PATH/Littérature/` :
