@@ -20,9 +20,19 @@ MODEL = "claude-sonnet-4-20250514"
 # ---------------------------------------------------------------------------
 # Vault Obsidian
 # ---------------------------------------------------------------------------
-_vault_env = os.getenv("VAULT_PATH", "")
-if not _vault_env:
-    sys.exit("Erreur : VAULT_PATH non défini dans .env ou l'environnement.")
+def _env_required(name: str) -> str:
+    """Retourne la valeur d'une variable d'environnement obligatoire."""
+    value = os.getenv(name, "")
+    if not value:
+        print(f"❌ Erreur : {name} n'est pas défini dans le fichier .env ou l'environnement.")
+        print()
+        print("Utilise `python main.py --help` pour voir les options disponibles.")
+        sys.exit(1)
+    return value
+
+
+_vault_env = _env_required("VAULT_PATH")
+_          = _env_required("ANTHROPIC_API_KEY")   # vérifié ici ; utilisé par claude_api.py
 
 VAULT_PATH      = Path(_vault_env)
 LITTERATURE     = VAULT_PATH / "Littérature"

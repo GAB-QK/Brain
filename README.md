@@ -47,17 +47,24 @@ VAULT_PATH=/chemin/vers/ton/vault/Obsidian
 
 ## Usage
 
-**Saisie interactive** (Ctrl+D pour terminer) :
 ```bash
-python main.py
-```
-
-**Depuis un fichier texte** :
-```bash
-python main.py ma_note.txt
+python main.py                    # saisie interactive (Ctrl+D pour terminer)
+python main.py ma_note.txt        # depuis un fichier texte
+python main.py --help             # affiche l'aide complète
 ```
 
 Le script affiche un aperçu des fichiers qui seront créés ou mis à jour, puis demande une confirmation avant d'écrire quoi que ce soit dans le vault.
+
+### Validation des arguments
+
+| Cas | Message |
+|-----|---------|
+| Plus d'un argument | `❌ Erreur : trop d'arguments…` |
+| Fichier introuvable | `❌ Erreur : fichier introuvable : …` |
+| Extension inconnue | `❌ Erreur : extension non reconnue : '…'` |
+| Fichier audio (`.mp3`, `.wav`…) | `❌ Erreur : le format audio n'est pas encore supporté` |
+| Fichier image (`.jpg`, `.png`…) | `❌ Erreur : le format image n'est pas encore supporté` |
+| `.env` incomplet | `❌ Erreur : ANTHROPIC_API_KEY / VAULT_PATH non défini…` |
 
 ---
 

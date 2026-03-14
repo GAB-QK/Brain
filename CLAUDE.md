@@ -33,7 +33,7 @@ Brain/
 ├── claude_api.py        ← SYSTEM_PROMPT, call_claude(), gestion erreurs API
 ├── markdown_builder.py  ← toutes les fonctions build_*() et fm()
 ├── vault_writer.py      ← toutes les fonctions write_*() et update_*(), sanitize()
-├── input_handler.py     ← collect_raw_note() + stubs Whisper / Tesseract
+├── input_handler.py     ← show_help(), collect_raw_note() + validation args + stubs Whisper / Tesseract
 └── cli.py               ← preview_and_confirm(), print_report()
 ```
 
@@ -93,6 +93,9 @@ Littérature/
 - [x] Index global de la bibliothèque (`00_Bibliotheque.md`)
 - [x] Frontmatter YAML sur tous les fichiers générés
 - [x] Configuration via `.env`
+- [x] `--help` / `-h` avec message d'aide complet (affiché avant tout import projet)
+- [x] Validation des arguments : trop d'args, fichier introuvable, extension inconnue, audio/image non supportés
+- [x] Validation `.env` : `ANTHROPIC_API_KEY` et `VAULT_PATH` obligatoires avec message d'erreur clair
 
 ## Prochaines étapes
 

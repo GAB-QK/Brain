@@ -13,6 +13,16 @@ Pipeline :
   print_report()          ← cli
 """
 
+import sys
+
+# ── --help intercepté avant tout import projet ─────────────────────────────
+# config.py appelle sys.exit si .env est incomplet ; on affiche le help avant.
+if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+    from input_handler import show_help
+    show_help()
+    sys.exit(0)
+
+# ── Imports projet ──────────────────────────────────────────────────────────
 from config import MODEL, VAULT_PATH
 from input_handler import collect_raw_note
 from claude_api import call_claude
