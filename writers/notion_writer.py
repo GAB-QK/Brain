@@ -139,19 +139,19 @@ class NotionWriter(BaseWriter):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _ensure_databases(self) -> None:
-        """Vérifie et crée les databases manquantes sous NOTION_ROOT_PAGE_ID."""
+        """Vérifie et crée les databases manquantes sous NOTION_ROOT_PAGE_ID.
+        Utilise httpx directement — notion-client v3 ignore le paramètre
+        properties dans databases.create et databases.update."""
         existing = self._list_child_databases()
         for name in self._CREATION_ORDER:
             if name in existing:
                 self._db_ids[name] = existing[name]
             else:
-                schema = self._db_schema(name)
-                db = self._retry(
-                    self.notion.databases.create,
-                    parent={"type": "page_id", "page_id": self._root_id},
-                    title=_rich_text(name),
-                    properties=schema,
-                )
+                db = self._notion_post("databases", {
+                    "parent": {"type": "page_id", "page_id": self._root_id},
+                    "title": _rich_text(name),
+                    "properties": self._db_schema(name),
+                })
                 self._db_ids[name] = db["id"]
                 logger.info("Database Notion créée : %s (%s)", name, db["id"])
 
@@ -181,7 +181,7 @@ class NotionWriter(BaseWriter):
         champ title par défaut et peut ignorer les noms non-ASCII à la création."""
 
         def _rel(db_name: str) -> dict:
-            return {"relation": {"database_id": self._db_ids[db_name]}}
+            return {"relation": {"database_id": self._db_ids[db_name], "single_property": {}}}
 
         if name == "Mouvements":
             return {
@@ -257,8 +257,40 @@ class NotionWriter(BaseWriter):
                     raise
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Helpers de recherche
+    # Appels HTTP directs (notion-client v3 ignore certains paramètres)
     # ─────────────────────────────────────────────────────────────────────────
+
+    def _notion_headers(self) -> dict:
+        return {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+        }
+
+    def _notion_post(self, path: str, body: dict) -> dict:
+        """Appel POST direct à l'API Notion via httpx avec retry rate-limit."""
+        url = f"https://api.notion.com/v1/{path}"
+        for attempt in range(3):
+            resp = httpx.post(url, headers=self._notion_headers(), json=body, timeout=60.0)
+            if resp.status_code == 429:
+                wait = 2 ** attempt
+                logger.warning("Rate limit Notion — attente %ds", wait)
+                time.sleep(wait)
+                continue
+            if not resp.is_success:
+                raise httpx.HTTPStatusError(
+                    f"{resp.status_code} {resp.reason_phrase} — {resp.text}",
+                    request=resp.request,
+                    response=resp,
+                )
+            return resp.json()
+
+    def _notion_patch(self, path: str, body: dict) -> dict:
+        """Appel PATCH direct à l'API Notion via httpx."""
+        url = f"https://api.notion.com/v1/{path}"
+        resp = httpx.patch(url, headers=self._notion_headers(), json=body, timeout=60.0)
+        resp.raise_for_status()
+        return resp.json()
 
     def _db_query(
         self,
@@ -266,39 +298,19 @@ class NotionWriter(BaseWriter):
         filter: Optional[dict] = None,
         sorts: Optional[list] = None,
     ) -> dict:
-        """Interroge une database Notion via POST /v1/databases/{id}/query.
-        Utilise httpx directement — compatible notion-client v2 et v3."""
-        url = f"https://api.notion.com/v1/databases/{database_id}/query"
-        headers = {
-            "Authorization": f"Bearer {NOTION_TOKEN}",
-            "Notion-Version": "2022-06-28",
-            "Content-Type": "application/json",
-        }
+        """Interroge une database Notion via POST /databases/{id}/query."""
         body: dict = {}
         if filter:
             body["filter"] = filter
         if sorts:
             body["sorts"] = sorts
-        max_attempts = 3
-        for attempt in range(max_attempts):
-            resp = httpx.post(url, headers=headers, json=body, timeout=60.0)
-            if resp.status_code == 429 and attempt < max_attempts - 1:
-                wait = 2 ** attempt
-                logger.warning(
-                    "Rate limit Notion — attente %ds (tentative %d/%d)",
-                    wait, attempt + 1, max_attempts,
-                )
-                time.sleep(wait)
-                continue
-            resp.raise_for_status()
-            return resp.json()
+        return self._notion_post(f"databases/{database_id}/query", body)
 
     def _find_page_by_title(
-        self, db_name: str, title: str, prop: str = "title"
+        self, db_name: str, title: str, prop: str = "Name"
     ) -> Optional[dict]:
         """Cherche une page par son champ title.
-        Notion identifie toujours la propriété title via l'ID interne "title",
-        indépendamment du nom affiché (Name, Nom, Titre…)."""
+        Utilise "Name" — nom par défaut Notion pour la propriété title."""
         resp = self._db_query(
             self._db_ids[db_name],
             filter={"property": prop, "title": {"equals": title}},
@@ -307,7 +319,7 @@ class NotionWriter(BaseWriter):
         return results[0] if results else None
 
     def _get_page_id(
-        self, db_name: str, title: str, prop: str = "title"
+        self, db_name: str, title: str, prop: str = "Name"
     ) -> Optional[str]:
         """Retourne l'id d'une page ou None si introuvable."""
         page = self._find_page_by_title(db_name, title, prop)
