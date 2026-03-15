@@ -130,7 +130,10 @@ def analyze():
 
         # Passe 2 — appel complet avec contexte
         data = call_claude(raw_note, context=context, ia_level=ia_level)
-        if WRITER_BACKEND == "notion":
+        detected_num = data.get("numero_chapitre")
+        if detected_num and isinstance(detected_num, int) and detected_num > 0:
+            ch_num = detected_num
+        elif WRITER_BACKEND == "notion":
             context_for_num = writer.get_existing_context(data["titre"])
             ch_num = context_for_num.get("nb_chapitres", 0) + 1
         else:

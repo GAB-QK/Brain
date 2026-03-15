@@ -46,7 +46,8 @@ SYSTEM_PROMPT = textwrap.dedent("""\
         "courant": "Nom du mouvement littéraire auquel il appartient"
       },
       "auteurs_lies": ["Auteur du même mouvement 1", "Auteur lié 2"],
-      "avertissements": ["Description courte de l'anomalie détectée"]
+      "avertissements": ["Description courte de l'anomalie détectée"],
+      "numero_chapitre": 4
     }
 
     Règles impératives :
@@ -54,6 +55,8 @@ SYSTEM_PROMPT = textwrap.dedent("""\
     - Si une information est inconnue ou non mentionnée dans la note,
       infère-la à partir de tes connaissances littéraires.
     - Les champs sont toujours présents, même si vides ([]).
+    - numero_chapitre : extraire l'entier depuis chapitre_ou_passage (ex : "Chapitre 8" → 8,
+      "Partie II, Chapitre 3" → 3, "Ch. 12" → 12). Retourner null si non détectable.
     - personnages_details doit contenir une entrée pour chaque élément de personnages.
     - personnages_details[].apparition : une phrase courte décrivant le rôle ou la
       présence de ce personnage dans le chapitre spécifique importé.
