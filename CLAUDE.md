@@ -56,6 +56,7 @@ Brain/
 ├── templates/
 │   ├── base.html                    ← layout commun (CDN, polices, Alpine.js)
 │   ├── index.html                   ← page principale (layout deux colonnes)
+│   ├── settings.html                ← page paramètres (backend, credentials)
 │   └── components/
 │       ├── preview_card.html        ← macro Jinja2 : carte de section avec animation
 │       └── file_badge.html          ← macro Jinja2 : badge fichier +/~/=
@@ -85,6 +86,27 @@ Brain/
 | `update_bibliotheque(data)` | Met à jour l'index global |
 | `get_existing_context(titre)` | Retourne `{personnages, themes, nb_chapitres}` |
 
+### Pipeline deux passes — enrichissement du contexte (`claude_api.py`)
+
+Avant l'appel principal à Claude, le pipeline effectue un appel léger pour extraire le titre, puis injecte le contexte existant du vault dans le message utilisateur :
+
+1. **Passe 1 — `extract_title(raw_note)`** : appel Claude minimal (`max_tokens=256`, prompt `TITLE_PROMPT`) qui retourne `{"titre": "...", "auteur": "..."}`. Retourne `{}` sans exception en cas d'échec.
+
+2. **Récupération du contexte** : `writer.get_existing_context(titre)` → `{personnages, themes, nb_chapitres}`. Si cette étape échoue, le pipeline continue avec `context = {}`.
+
+3. **Passe 2 — `call_claude(raw_note, context=context)`** : si `context.nb_chapitres > 0`, `_build_context_block(context)` est préfixé au message utilisateur avec personnages, thèmes et numéro de chapitre déjà connus. Sinon, comportement identique à l'ancien (pas d'injection inutile pour un premier chapitre).
+
+**Règle d'injection conditionnelle** : le bloc contexte n'est injecté que si `nb_chapitres > 0`. Un premier import passe directement en passe 2.
+
+**Fonctions `claude_api.py` :**
+
+| Fonction | Description |
+|----------|-------------|
+| `extract_title(raw_note)` | Appel Claude léger — retourne `{titre, auteur}` ou `{}` |
+| `_build_context_block(context)` | Formate le contexte existant en bloc texte pour injection |
+| `_strip_code_fences(text)` | Retire les balises ` ```json ``` ` (mutualisé avec `call_claude`) |
+| `call_claude(raw_note, context=None)` | Appel complet — injecte le contexte si `nb_chapitres > 0` |
+
 ### Routes Flask (`app.py`)
 
 | Route | Méthode | Description |
@@ -93,6 +115,14 @@ Brain/
 | `/analyze` | POST | Reçoit `{note}`, appelle `call_claude()`, retourne `{data, ch_num, preview_files}` |
 | `/import` | POST | Reçoit `{data, ch_num}`, appelle toutes les fonctions `write_*`, retourne `{files}` |
 | `/status` | GET | Retourne la liste des livres existants dans le vault `{books}` |
+| `/settings` | GET | Page paramètres — passe les valeurs `.env` actuelles au template via `current` |
+| `/settings/save` | POST | Reçoit `{WRITER_BACKEND, VAULT_PATH, ANTHROPIC_API_KEY, NOTION_TOKEN, NOTION_ROOT_PAGE_ID}`, met à jour `.env` via `_update_env_file()`, recharge l'env via `load_dotenv(override=True)`, réinstancie le `writer` global |
+
+### Helper `_update_env_file(updates: dict)` (`app.py`)
+
+Met à jour les clés dans `.env` sans écraser les lignes non modifiées ni les commentaires. Parcourt les lignes existantes et remplace les valeurs connues ; ajoute les clés absentes à la fin du fichier.
+
+**Note :** `VAULT_PATH` est un constant de `config.py` figé à l'import. La modification prend effet dans `.env` immédiatement, mais les chemins utilisés par `ObsidianWriter` ne sont mis à jour qu'au prochain redémarrage du serveur. `WRITER_BACKEND` et les credentials Notion/Anthropic, eux, sont relus dynamiquement lors de la réinstanciation du writer.
 
 ### Lancement
 
@@ -216,6 +246,8 @@ date_modification: 2026-03-14  # mis à jour automatiquement à chaque append
 - [x] Badges fichiers colorés : vert `+` nouveau, bleu `~` mis à jour, gris `=` existant
 - [x] Accessible en réseau local (`0.0.0.0:5000`) depuis smartphone ou autre appareil
 - [x] **Backend Notion** : `NotionWriter` complet (databases auto-créées, relations, citations en sous-pages, personnages inter-œuvres)
+- [x] **Page Paramètres** (`/settings`) : configuration backend et credentials via l'interface web sans toucher au `.env`
+- [x] **Pipeline deux passes** : `extract_title()` → `get_existing_context()` → `call_claude(context=…)` — cohérence inter-chapitres (personnages, thèmes, numérotation)
 
 ## Architecture Notion (WRITER_BACKEND=notion)
 

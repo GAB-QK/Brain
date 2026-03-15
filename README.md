@@ -76,6 +76,8 @@ Ouvre [http://localhost:5000](http://localhost:5000) dans ton navigateur (ou dep
 └───────────────────────┴─────────────────────────────┘
 ```
 
+La page **⚙️ Paramètres** (`/settings`) permet de configurer le backend et les credentials sans toucher au `.env` manuellement — accessible via l'icône en haut à droite de l'interface.
+
 ### Interface terminal (fallback)
 
 ```bash
@@ -162,6 +164,7 @@ Brain/
 |--------|---------------|
 | ✅ | Import depuis texte brut (stdin ou fichier) |
 | ✅ | Analyse littéraire via Claude (auteur, mouvement, thèmes, citations…) |
+| ✅ | Cohérence inter-chapitres — contexte existant (personnages, thèmes, nb chapitres) injecté dans le prompt lors des imports suivants |
 | ✅ | Génération de fiches chapitre, auteur, mouvement, personnage |
 | ✅ | Index par livre et bibliothèque globale |
 | ✅ | Logique append — jamais d'écrasement des fiches existantes |

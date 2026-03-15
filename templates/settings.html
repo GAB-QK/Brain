@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div x-data="settings()" class="min-h-screen transition-colors duration-200"
+  :class="darkMode ? 'bg-[#0f1117] text-slate-200' : 'bg-slate-50 text-slate-900'">
+
+  <!-- ═══════════════════════════════ HEADER ══════════════════════════════ -->
+  <header class="sticky top-0 z-50 border-b backdrop-blur-xl transition-colors duration-200"
+    :class="darkMode ? 'bg-[#0f1117]/90 border-white/5' : 'bg-white/90 border-slate-200'">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+
+      <div class="flex items-center gap-3">
+        <a href="/"
+          class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+          :class="darkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+          title="Retour">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        </a>
+        <h1 class="font-semibold tracking-tight flex items-center gap-2"
+          :class="darkMode ? 'text-white' : 'text-slate-900'">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          Paramètres
+        </h1>
+      </div>
+
+      <button @click="toggleDarkMode()"
+        class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+        :class="darkMode ? 'text-slate-400 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+        :title="darkMode ? 'Passer en mode clair' : 'Passer en mode sombre'">
+        <i data-lucide="sun" class="w-4 h-4" x-show="darkMode"></i>
+        <i data-lucide="moon" class="w-4 h-4" x-show="!darkMode"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════ MAIN ════════════════════════════════ -->
+  <main class="max-w-2xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
+
+    <!-- ── Destination ─────────────────────────────────────────────────── -->
+    <section class="flex flex-col gap-3">
+      <h2 class="text-xs font-semibold uppercase tracking-widest"
+        :class="darkMode ? 'text-slate-500' : 'text-slate-400'">Destination des notes</h2>
+
+      <div class="grid grid-cols-2 gap-3">
+
+        <!-- Obsidian card -->
+        <button @click="backend = 'obsidian'"
+          class="rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer outline-none"
+          :class="backend === 'obsidian'
+            ? (darkMode
+                ? 'bg-indigo-500/10 border-indigo-500/40 ring-1 ring-indigo-500/20'
+                : 'bg-indigo-50 border-indigo-300 ring-1 ring-indigo-200')
+            : (darkMode
+                ? 'bg-[#1a1d27] border-white/5 hover:border-white/10'
+                : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm')">
+          <div class="text-2xl mb-2 leading-none select-none">📁</div>
+          <div class="font-semibold text-sm mb-0.5"
+            :class="darkMode ? 'text-white' : 'text-slate-900'">Obsidian</div>
+          <div class="text-xs"
+            :class="darkMode ? 'text-slate-500' : 'text-slate-400'">Local · Gratuit</div>
+          <div class="mt-3 text-xs font-medium"
+            :class="backend === 'obsidian' ? 'text-indigo-400' : (darkMode ? 'text-slate-600' : 'text-slate-300')">
+            <span x-show="backend === 'obsidian'">✓ Actif</span>
+            <span x-show="backend !== 'obsidian'">Choisir →</span>
+          </div>
+        </button>
+
+        <!-- Notion card -->
+        <button @click="backend = 'notion'"
+          class="rounded-xl border p-4 text-left transition-all duration-200 cursor-pointer outline-none"
+          :class="backend === 'notion'
+            ? (darkMode
+                ? 'bg-violet-500/10 border-violet-500/40 ring-1 ring-violet-500/20'
+                : 'bg-violet-50 border-violet-300 ring-1 ring-violet-200')
+            : (darkMode
+                ? 'bg-[#1a1d27] border-white/5 hover:border-white/10'
+                : 'bg-white border-slate-200 hover:border-slate-300 shadow-sm')">
+          <div class="text-2xl mb-2 leading-none select-none">🔲</div>
+          <div class="font-semibold text-sm mb-0.5"
+            :class="darkMode ? 'text-white' : 'text-slate-900'">Notion</div>
+          <div class="text-xs"
+            :class="darkMode ? 'text-slate-500' : 'text-slate-400'">Cloud · API</div>
+          <div class="mt-3 text-xs font-medium"
+            :class="backend === 'notion' ? 'text-violet-400' : (darkMode ? 'text-slate-600' : 'text-slate-300')">
+            <span x-show="backend === 'notion'">✓ Actif</span>
+            <span x-show="backend !== 'notion'">Choisir →</span>
+          </div>
+        </button>
+
+      </div>
+    </section>
+
+    <!-- ── Obsidian config ──────────────────────────────────────────────── -->
+    <section class="rounded-xl border p-5 flex flex-col gap-4 transition-all duration-200"
+      :class="[
+        backend === 'obsidian'
+          ? (darkMode ? 'bg-[#1a1d27] border-indigo-500/25' : 'bg-white border-indigo-200 shadow-sm')
+          : (darkMode ? 'bg-[#1a1d27] border-white/5 opacity-40' : 'bg-white border-slate-200 shadow-sm opacity-40'),
+      ]">
+      <h3 class="text-xs font-semibold uppercase tracking-widest flex items-center gap-2"
+        :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+        <span class="text-sm leading-none">📁</span> Obsidian
+      </h3>
+
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-medium"
+          :class="darkMode ? 'text-slate-400' : 'text-slate-600'">Chemin du vault</label>
+        <input type="text" x-model="vaultPath"
+          :disabled="backend !== 'obsidian'"
+          placeholder="/home/user/Documents/Obsidian/MonVault"
+          class="h-9 rounded-lg border px-3 text-sm bg-transparent outline-none transition-colors w-full"
+          :class="darkMode
+            ? 'border-white/10 text-slate-200 placeholder-slate-600 focus:border-indigo-500/50 disabled:opacity-50'
+            : 'border-slate-200 text-slate-800 placeholder-slate-400 focus:border-indigo-300 disabled:opacity-50'" />
+      </div>
+    </section>
+
+    <!-- ── Notion config ───────────────────────────────────────────────── -->
+    <section class="rounded-xl border p-5 flex flex-col gap-4 transition-all duration-200"
+      :class="[
+        backend === 'notion'
+          ? (darkMode ? 'bg-[#1a1d27] border-violet-500/25' : 'bg-white border-violet-200 shadow-sm')
+          : (darkMode ? 'bg-[#1a1d27] border-white/5 opacity-40' : 'bg-white border-slate-200 shadow-sm opacity-40'),
+      ]">
+      <h3 class="text-xs font-semibold uppercase tracking-widest flex items-center gap-2"
+        :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+        <span class="text-sm leading-none">🔲</span> Notion
+      </h3>
+
+      <!-- Token -->
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-medium"
+          :class="darkMode ? 'text-slate-400' : 'text-slate-600'">Token d'intégration</label>
+        <div class="relative">
+          <input :type="showToken ? 'text' : 'password'" x-model="notionToken"
+            :disabled="backend !== 'notion'"
+            placeholder="ntn_xxxxxxxxxxxxxxxx"
+            class="w-full h-9 rounded-lg border px-3 pr-9 text-sm bg-transparent outline-none transition-colors font-mono"
+            :class="darkMode
+              ? 'border-white/10 text-slate-200 placeholder-slate-600 focus:border-violet-500/50 disabled:opacity-50'
+              : 'border-slate-200 text-slate-800 placeholder-slate-400 focus:border-violet-300 disabled:opacity-50'" />
+          <button type="button" @click="showToken = !showToken"
+            :disabled="backend !== 'notion'"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-30"
+            :class="darkMode ? 'text-slate-600 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'">
+            <i data-lucide="eye" class="w-3.5 h-3.5" x-show="!showToken"></i>
+            <i data-lucide="eye-off" class="w-3.5 h-3.5" x-show="showToken"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Page ID -->
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-medium"
+          :class="darkMode ? 'text-slate-400' : 'text-slate-600'">Page racine ID</label>
+        <div class="relative">
+          <input :type="showPageId ? 'text' : 'password'" x-model="notionPageId"
+            :disabled="backend !== 'notion'"
+            placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            class="w-full h-9 rounded-lg border px-3 pr-9 text-sm bg-transparent outline-none transition-colors font-mono"
+            :class="darkMode
+              ? 'border-white/10 text-slate-200 placeholder-slate-600 focus:border-violet-500/50 disabled:opacity-50'
+              : 'border-slate-200 text-slate-800 placeholder-slate-400 focus:border-violet-300 disabled:opacity-50'" />
+          <button type="button" @click="showPageId = !showPageId"
+            :disabled="backend !== 'notion'"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-30"
+            :class="darkMode ? 'text-slate-600 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'">
+            <i data-lucide="eye" class="w-3.5 h-3.5" x-show="!showPageId"></i>
+            <i data-lucide="eye-off" class="w-3.5 h-3.5" x-show="showPageId"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── API Claude ──────────────────────────────────────────────────── -->
+    <section class="rounded-xl border p-5 flex flex-col gap-4 transition-colors duration-200"
+      :class="darkMode ? 'bg-[#1a1d27] border-white/5' : 'bg-white border-slate-200 shadow-sm'">
+      <h3 class="text-xs font-semibold uppercase tracking-widest"
+        :class="darkMode ? 'text-slate-500' : 'text-slate-400'">🤖 API Claude (Anthropic)</h3>
+
+      <div class="flex flex-col gap-1.5">
+        <label class="text-xs font-medium"
+          :class="darkMode ? 'text-slate-400' : 'text-slate-600'">Clé API</label>
+        <div class="relative">
+          <input :type="showApiKey ? 'text' : 'password'" x-model="apiKey"
+            placeholder="sk-ant-..."
+            class="w-full h-9 rounded-lg border px-3 pr-9 text-sm bg-transparent outline-none transition-colors font-mono"
+            :class="darkMode
+              ? 'border-white/10 text-slate-200 placeholder-slate-600 focus:border-slate-500/50'
+              : 'border-slate-200 text-slate-800 placeholder-slate-400 focus:border-slate-400'" />
+          <button type="button" @click="showApiKey = !showApiKey"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 transition-colors"
+            :class="darkMode ? 'text-slate-600 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'">
+            <i data-lucide="eye" class="w-3.5 h-3.5" x-show="!showApiKey"></i>
+            <i data-lucide="eye-off" class="w-3.5 h-3.5" x-show="showApiKey"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Save ───────────────────────────────────────────────────────── -->
+    <div class="flex flex-col items-stretch gap-2 pb-8">
+      <button @click="save()"
+        :disabled="!isDirty || saving"
+        class="w-full h-11 rounded-xl font-medium text-sm text-white transition-all flex items-center justify-center gap-2 bg-indigo-500"
+        :class="(!isDirty || saving) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-400 active:scale-[.98]'">
+        <span x-show="saving" class="flex items-center gap-2">
+          <span class="loading loading-spinner loading-xs"></span>
+          Sauvegarde…
+        </span>
+        <span x-show="!saving">💾 Sauvegarder</span>
+      </button>
+      <p class="text-center text-xs"
+        :class="darkMode ? 'text-slate-600' : 'text-slate-400'">
+        La modification du chemin vault nécessite un redémarrage du serveur pour prendre effet.
+      </p>
+    </div>
+
+  </main>
+
+  <!-- ══════════════════════════ TOAST ══════════════════════════════════ -->
+  <div
+    x-show="toast"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+    x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+    x-transition:leave-end="opacity-0 translate-y-4 scale-95"
+    class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl font-medium text-sm shadow-2xl shadow-black/30 flex items-center gap-2 max-w-sm text-center"
+    :class="{
+      'bg-emerald-500 text-white': toast?.type === 'success',
+      'bg-red-500 text-white':     toast?.type === 'error',
+    }"
+    x-text="toast?.message">
+  </div>
+
+</div>
+
+<script>
+function settings() {
+  return {
+    darkMode: localStorage.getItem('darkMode') !== 'false',
+    backend:      {{ current.WRITER_BACKEND      | tojson }},
+    vaultPath:    {{ current.VAULT_PATH          | tojson }},
+    apiKey:       {{ current.ANTHROPIC_API_KEY   | tojson }},
+    notionToken:  {{ current.NOTION_TOKEN        | tojson }},
+    notionPageId: {{ current.NOTION_ROOT_PAGE_ID | tojson }},
+    showApiKey: false,
+    showToken:  false,
+    showPageId: false,
+    saving: false,
+    toast: null,
+    _orig: null,
+
+    init() {
+      this._orig = {
+        backend:      this.backend,
+        vaultPath:    this.vaultPath,
+        apiKey:       this.apiKey,
+        notionToken:  this.notionToken,
+        notionPageId: this.notionPageId,
+      };
+      this.$nextTick(() => lucide.createIcons());
+    },
+
+    get isDirty() {
+      return this._orig && (
+        this.backend      !== this._orig.backend      ||
+        this.vaultPath    !== this._orig.vaultPath    ||
+        this.apiKey       !== this._orig.apiKey       ||
+        this.notionToken  !== this._orig.notionToken  ||
+        this.notionPageId !== this._orig.notionPageId
+      );
+    },
+
+    toggleDarkMode() {
+      this.darkMode = !this.darkMode;
+      localStorage.setItem('darkMode', this.darkMode);
+    },
+
+    validate() {
+      if (this.backend === 'obsidian' && !this.vaultPath.trim())
+        return 'Le chemin du vault Obsidian est requis.';
+      if (this.backend === 'notion') {
+        if (!this.notionToken.trim())  return "Le token d'intégration Notion est requis.";
+        if (!this.notionPageId.trim()) return "L'ID de page racine Notion est requis.";
+      }
+      if (!this.apiKey.trim()) return 'La clé API Anthropic est requise.';
+      return null;
+    },
+
+    async save() {
+      const err = this.validate();
+      if (err) { this.showToast(err, 'error'); return; }
+      this.saving = true;
+      try {
+        const resp = await fetch('/settings/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            WRITER_BACKEND:      this.backend,
+            VAULT_PATH:          this.vaultPath,
+            ANTHROPIC_API_KEY:   this.apiKey,
+            NOTION_TOKEN:        this.notionToken,
+            NOTION_ROOT_PAGE_ID: this.notionPageId,
+          }),
+        });
+        const result = await resp.json();
+        if (!resp.ok) throw new Error(result.error || 'Erreur inconnue');
+        this._orig = {
+          backend:      this.backend,
+          vaultPath:    this.vaultPath,
+          apiKey:       this.apiKey,
+          notionToken:  this.notionToken,
+          notionPageId: this.notionPageId,
+        };
+        this.showToast('✅ Paramètres sauvegardés — writer relancé', 'success');
+      } catch (e) {
+        this.showToast('❌ ' + e.message, 'error');
+      } finally {
+        this.saving = false;
+      }
+    },
+
+    showToast(message, type) {
+      this.toast = { message, type };
+      setTimeout(() => { this.toast = null; }, 4000);
+    },
+  };
+}
+</script>
+{% endblock %}

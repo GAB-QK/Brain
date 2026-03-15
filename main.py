@@ -25,7 +25,7 @@ if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
 # ── Imports projet ──────────────────────────────────────────────────────────
 from config import MODEL, VAULT_PATH, LIVRES_DIR
 from input_handler import collect_raw_note
-from claude_api import call_claude
+from claude_api import call_claude, extract_title
 from writers import get_writer, sanitize, next_chapter_number
 from cli import preview_and_confirm, print_report
 
@@ -39,8 +39,21 @@ def main() -> None:
 
     raw_note = collect_raw_note()
 
+    # Passe 1 — extraction du titre (appel léger, silencieux)
+    title_data = extract_title(raw_note)
+    titre      = title_data.get("titre", "")
+
+    # Récupération du contexte existant
+    context: dict = {}
+    if titre:
+        try:
+            context = writer.get_existing_context(titre)
+        except Exception as exc:
+            print(f"⚠️  Impossible de récupérer le contexte existant : {exc}")
+
+    # Passe 2 — appel complet avec contexte
     print("\n⏳ Envoi à Claude en cours…")
-    data = call_claude(raw_note)
+    data = call_claude(raw_note, context=context)
     print(f"✔  Œuvre détectée : « {data.get('titre', '?')} » de {data.get('auteur', '?')}")
 
     ch_dir = LIVRES_DIR / sanitize(data["titre"]) / "Chapitres"

@@ -3,9 +3,11 @@ Serveur Flask — interface web par-dessus les modules Python existants.
 Lance avec : python app.py  (accessible sur http://0.0.0.0:5000)
 """
 
+import os
 import traceback
 from pathlib import Path
 
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify
 
 from config import (
@@ -15,7 +17,7 @@ from config import (
     MOUVEMENTS_DIR,
     PERSONNAGES_DIR,
 )
-from claude_api import call_claude
+from claude_api import call_claude, extract_title
 from writers import get_writer, sanitize, next_chapter_number
 
 writer = get_writer()
@@ -26,6 +28,26 @@ app = Flask(__name__)
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _update_env_file(updates: dict) -> None:
+    """Met à jour les clés dans .env sans écraser les lignes non modifiées."""
+    env_path = Path(".env")
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    updated_keys = set()
+    new_lines = []
+    for line in lines:
+        key = line.split("=")[0].strip()
+        if key in updates:
+            new_lines.append(f"{key}={updates[key]}")
+            updated_keys.add(key)
+        else:
+            new_lines.append(line)
+    # Ajouter les clés absentes du fichier
+    for key, value in updates.items():
+        if key not in updated_keys:
+            new_lines.append(f"{key}={value}")
+    env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
 
 def _preview_files(data: dict, ch_num: int) -> list[dict]:
     """Construit la liste prévisionnelle des fichiers avant toute écriture."""
@@ -77,7 +99,20 @@ def analyze():
         return jsonify({"error": "La note est vide."}), 400
 
     try:
-        data    = call_claude(raw_note)
+        # Passe 1 — extraction du titre (silencieuse)
+        title_data = extract_title(raw_note)
+        titre      = title_data.get("titre", "")
+
+        # Récupération du contexte existant
+        context: dict = {}
+        if titre:
+            try:
+                context = writer.get_existing_context(titre)
+            except Exception:
+                pass  # continuer sans contexte
+
+        # Passe 2 — appel complet avec contexte
+        data    = call_claude(raw_note, context=context)
         ch_dir  = LIVRES_DIR / sanitize(data["titre"]) / "Chapitres"
         ch_num  = next_chapter_number(ch_dir)
         preview = _preview_files(data, ch_num)
@@ -127,6 +162,41 @@ def import_vault():
             files.append({"path": rel(path), "status": st(created)})
 
         return jsonify({"files": files})
+    except Exception as exc:
+        return jsonify({"error": str(exc), "detail": traceback.format_exc()}), 500
+
+
+@app.route("/settings")
+def settings():
+    current = {
+        "WRITER_BACKEND":      os.getenv("WRITER_BACKEND", "obsidian"),
+        "VAULT_PATH":          os.getenv("VAULT_PATH", ""),
+        "ANTHROPIC_API_KEY":   os.getenv("ANTHROPIC_API_KEY", ""),
+        "NOTION_TOKEN":        os.getenv("NOTION_TOKEN", ""),
+        "NOTION_ROOT_PAGE_ID": os.getenv("NOTION_ROOT_PAGE_ID", ""),
+    }
+    return render_template("settings.html", current=current)
+
+
+@app.route("/settings/save", methods=["POST"])
+def settings_save():
+    global writer
+    payload = request.get_json(silent=True) or {}
+    allowed_keys = {"WRITER_BACKEND", "VAULT_PATH", "ANTHROPIC_API_KEY",
+                    "NOTION_TOKEN", "NOTION_ROOT_PAGE_ID"}
+    updates = {k: v for k, v in payload.items() if k in allowed_keys}
+    try:
+        _update_env_file(updates)
+        load_dotenv(override=True)
+        # Réinstancier le writer selon le nouveau backend
+        new_backend = updates.get("WRITER_BACKEND", os.getenv("WRITER_BACKEND", "obsidian"))
+        if new_backend == "notion":
+            from writers.notion_writer import NotionWriter
+            writer = NotionWriter()
+        else:
+            from writers.obsidian_writer import ObsidianWriter
+            writer = ObsidianWriter()
+        return jsonify({"ok": True})
     except Exception as exc:
         return jsonify({"error": str(exc), "detail": traceback.format_exc()}), 500
 
