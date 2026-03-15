@@ -1,4 +1,5 @@
 anthropic>=0.40.0
 python-dotenv>=1.0.0
 flask>=3.0.0
-notion-client>=2.2.1  # v3.x supported: databases.query remplacé par request() dans notion_writer.py
+notion-client>=2.2.1  # v3.x supported: databases.query supprimé, _db_query utilise httpx directement
+httpx>=0.27.0          # dépendance directe pour _db_query (déjà installé via notion-client)

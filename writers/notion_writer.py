@@ -22,6 +22,8 @@ import logging
 import time
 from typing import Any, Optional
 
+import httpx
+
 try:
     from notion_client import Client
     from notion_client.errors import APIResponseError
@@ -243,15 +245,38 @@ class NotionWriter(BaseWriter):
     # Helpers de recherche
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _db_query(self, database_id: str, **body: Any) -> dict:
-        """Interroge une database Notion (POST /v1/databases/{id}/query).
-        Compatible notion-client 2.x et 3.x (databases.query supprimé en v3)."""
-        return self._retry(
-            self.notion.request,
-            path=f"databases/{database_id}/query",
-            method="post",
-            body=body or None,
-        )
+    def _db_query(
+        self,
+        database_id: str,
+        filter: Optional[dict] = None,
+        sorts: Optional[list] = None,
+    ) -> dict:
+        """Interroge une database Notion via POST /v1/databases/{id}/query.
+        Utilise httpx directement — compatible notion-client v2 et v3."""
+        url = f"https://api.notion.com/v1/databases/{database_id}/query"
+        headers = {
+            "Authorization": f"Bearer {NOTION_TOKEN}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json",
+        }
+        body: dict = {}
+        if filter:
+            body["filter"] = filter
+        if sorts:
+            body["sorts"] = sorts
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            resp = httpx.post(url, headers=headers, json=body, timeout=60.0)
+            if resp.status_code == 429 and attempt < max_attempts - 1:
+                wait = 2 ** attempt
+                logger.warning(
+                    "Rate limit Notion — attente %ds (tentative %d/%d)",
+                    wait, attempt + 1, max_attempts,
+                )
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            return resp.json()
 
     def _find_page_by_title(
         self, db_name: str, title: str, prop: str = "Titre"
