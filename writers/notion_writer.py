@@ -166,30 +166,33 @@ class NotionWriter(BaseWriter):
         def _rel(db_name: str) -> dict:
             return {"relation": {"database_id": self._db_ids[db_name]}}
 
-        schemas: dict[str, dict] = {
-            "Mouvements": {
+        if name == "Mouvements":
+            return {
                 "Nom":           {"title": {}},
                 "Epoque":        {"rich_text": {}},
                 "Description":   {"rich_text": {}},
                 "Contexte":      {"rich_text": {}},
                 "Date création": {"date": {}},
-            },
-            "Auteurs": {
+            }
+        if name == "Auteurs":
+            return {
                 "Nom":           {"title": {}},
                 "Dates":         {"rich_text": {}},
                 "Mouvement":     _rel("Mouvements"),
                 "Biographie":    {"rich_text": {}},
                 "Oeuvres":       {"rich_text": {}},
                 "Date création": {"date": {}},
-            },
-            "Livres": {
+            }
+        if name == "Livres":
+            return {
                 "Titre":         {"title": {}},
                 "Auteur":        _rel("Auteurs"),
                 "Mouvement":     _rel("Mouvements"),
                 "Nb chapitres":  {"number": {}},
                 "Date création": {"date": {}},
-            },
-            "Personnages": {
+            }
+        if name == "Personnages":
+            return {
                 "Nom":               {"title": {}},
                 "Livres":            _rel("Livres"),
                 "Auteurs":           _rel("Auteurs"),
@@ -197,8 +200,9 @@ class NotionWriter(BaseWriter):
                 "Apparitions":       {"rich_text": {}},
                 "Date création":     {"date": {}},
                 "Date modification": {"date": {}},
-            },
-            "Chapitres": {
+            }
+        if name == "Chapitres":
+            return {
                 "Titre":          {"title": {}},
                 "Livre":          _rel("Livres"),
                 "Auteur":         _rel("Auteurs"),
@@ -208,9 +212,8 @@ class NotionWriter(BaseWriter):
                 "Themes":         {"multi_select": {}},
                 "Date import":    {"date": {}},
                 "Avertissements": {"rich_text": {}},
-            },
-        }
-        return schemas[name]
+            }
+        raise ValueError(f"Database inconnue : {name}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Retry avec backoff exponentiel (rate limit Notion)
@@ -240,13 +243,22 @@ class NotionWriter(BaseWriter):
     # Helpers de recherche
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _db_query(self, database_id: str, **body: Any) -> dict:
+        """Interroge une database Notion (POST /v1/databases/{id}/query).
+        Compatible notion-client 2.x et 3.x (databases.query supprimé en v3)."""
+        return self._retry(
+            self.notion.request,
+            path=f"databases/{database_id}/query",
+            method="post",
+            body=body or None,
+        )
+
     def _find_page_by_title(
         self, db_name: str, title: str, prop: str = "Titre"
     ) -> Optional[dict]:
         """Cherche une page dans une database par son champ titre. Retourne la page ou None."""
-        resp = self._retry(
-            self.notion.databases.query,
-            database_id=self._db_ids[db_name],
+        resp = self._db_query(
+            self._db_ids[db_name],
             filter={"property": prop, "title": {"equals": title}},
         )
         results = resp.get("results", [])
@@ -738,9 +750,8 @@ class NotionWriter(BaseWriter):
 
         # Personnages liés à ce livre
         personnages: list[str] = []
-        resp = self._retry(
-            self.notion.databases.query,
-            database_id=self._db_ids["Personnages"],
+        resp = self._db_query(
+            self._db_ids["Personnages"],
             filter={"property": "Livres", "relation": {"contains": livre_id}},
         )
         for p in resp.get("results", []):
@@ -751,9 +762,8 @@ class NotionWriter(BaseWriter):
 
         # Thèmes des chapitres liés à ce livre
         themes_set: set[str] = set()
-        resp_ch = self._retry(
-            self.notion.databases.query,
-            database_id=self._db_ids["Chapitres"],
+        resp_ch = self._db_query(
+            self._db_ids["Chapitres"],
             filter={"property": "Livre", "relation": {"contains": livre_id}},
         )
         for ch in resp_ch.get("results", []):

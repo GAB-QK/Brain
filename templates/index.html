@@ -110,7 +110,7 @@
           <h3 class="text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-1.5"
             :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
             <i data-lucide="library" class="w-3.5 h-3.5"></i>
-            Vault Obsidian
+            <span x-text="backend === 'notion' ? 'Notion' : 'Vault Obsidian'"></span>
           </h3>
           <div class="flex flex-col gap-1.5">
             <template x-for="book in books" :key="book.titre">
@@ -336,10 +336,10 @@
               Import en cours…
             </span>
             <span x-show="imported" class="flex items-center gap-2">
-              ✅ Importé dans Obsidian
+              ✅ <span x-text="backend === 'notion' ? 'Importé dans Notion' : 'Importé dans Obsidian'"></span>
             </span>
             <span x-show="!importing && !imported" class="flex items-center gap-2">
-              🗂️ Importer dans Obsidian
+              <span x-text="backend === 'notion' ? '🔲 Importer dans Notion' : '🗂️ Importer dans Obsidian'"></span>
             </span>
           </button>
         </div>

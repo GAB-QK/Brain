@@ -308,6 +308,7 @@ function settings() {
         });
         const result = await resp.json();
         if (!resp.ok) throw new Error(result.error || 'Erreur inconnue');
+        if (result.NOTION_ROOT_PAGE_ID) this.notionPageId = result.NOTION_ROOT_PAGE_ID;
         this._orig = {
           backend:      this.backend,
           vaultPath:    this.vaultPath,

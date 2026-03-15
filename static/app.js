@@ -8,6 +8,7 @@ document.addEventListener('alpine:init', () => {
 
     // ── État ────────────────────────────────────────────────────────────
     darkMode:    true,
+    backend:     'obsidian',
     note:        '',
     loading:     false,
     analyzed:    false,
@@ -34,12 +35,24 @@ document.addEventListener('alpine:init', () => {
     init() {
       document.documentElement.setAttribute('data-theme', 'dark');
       this.fetchStatus();
+      this.fetchConfig();
     },
 
     // ── Dark mode ───────────────────────────────────────────────────────
     toggleDarkMode() {
       this.darkMode = !this.darkMode;
       document.documentElement.setAttribute('data-theme', this.darkMode ? 'dark' : 'light');
+    },
+
+    // ── Config (backend actif) ───────────────────────────────────────────
+    async fetchConfig() {
+      try {
+        const res  = await fetch('/config');
+        const json = await res.json();
+        this.backend = json.backend || 'obsidian';
+      } catch (_) {
+        // silencieux — pas critique
+      }
     },
 
     // ── Vault status ────────────────────────────────────────────────────

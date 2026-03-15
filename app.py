@@ -4,6 +4,7 @@ Lance avec : python app.py  (accessible sur http://0.0.0.0:5000)
 """
 
 import os
+import re
 import traceback
 from pathlib import Path
 
@@ -47,6 +48,19 @@ def _update_env_file(updates: dict) -> None:
         if key not in updated_keys:
             new_lines.append(f"{key}={value}")
     env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+
+def _normalize_notion_id(value: str) -> str:
+    """
+    Extrait et normalise un UUID Notion depuis n'importe quel format :
+    - UUID brut : 324d70bff8508013977fc45728a591e1
+    - URL Notion : notion.so/Carnet-de-lecture-324d70bff8508013977fc45728a591e1
+    - UUID avec tirets déjà présents : 324d70bf-f850-8013-977f-c45728a591e1
+    """
+    clean = re.sub(r"[^0-9a-fA-F]", "", value)
+    if len(clean) == 32:
+        return f"{clean[0:8]}-{clean[8:12]}-{clean[12:16]}-{clean[16:20]}-{clean[20:32]}"
+    return value
 
 
 def _preview_files(data: dict, ch_num: int) -> list[dict]:
@@ -185,6 +199,8 @@ def settings_save():
     allowed_keys = {"WRITER_BACKEND", "VAULT_PATH", "ANTHROPIC_API_KEY",
                     "NOTION_TOKEN", "NOTION_ROOT_PAGE_ID"}
     updates = {k: v for k, v in payload.items() if k in allowed_keys}
+    if "NOTION_ROOT_PAGE_ID" in updates:
+        updates["NOTION_ROOT_PAGE_ID"] = _normalize_notion_id(updates["NOTION_ROOT_PAGE_ID"])
     try:
         _update_env_file(updates)
         load_dotenv(override=True)
@@ -196,9 +212,14 @@ def settings_save():
         else:
             from writers.obsidian_writer import ObsidianWriter
             writer = ObsidianWriter()
-        return jsonify({"ok": True})
+        return jsonify({"ok": True, "NOTION_ROOT_PAGE_ID": updates.get("NOTION_ROOT_PAGE_ID", "")})
     except Exception as exc:
         return jsonify({"error": str(exc), "detail": traceback.format_exc()}), 500
+
+
+@app.route("/config")
+def config():
+    return jsonify({"backend": os.getenv("WRITER_BACKEND", "obsidian")})
 
 
 @app.route("/status")
