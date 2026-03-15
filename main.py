@@ -23,7 +23,7 @@ if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
     sys.exit(0)
 
 # ── Imports projet ──────────────────────────────────────────────────────────
-from config import MODEL, VAULT_PATH, LIVRES_DIR
+from config import MODEL, VAULT_PATH, LIVRES_DIR, WRITER_BACKEND
 from input_handler import collect_raw_note
 from claude_api import call_claude, extract_title
 from writers import get_writer, sanitize, next_chapter_number
@@ -56,8 +56,12 @@ def main() -> None:
     data = call_claude(raw_note, context=context)
     print(f"✔  Œuvre détectée : « {data.get('titre', '?')} » de {data.get('auteur', '?')}")
 
-    ch_dir = LIVRES_DIR / sanitize(data["titre"]) / "Chapitres"
-    ch_num = next_chapter_number(ch_dir)
+    if WRITER_BACKEND == "notion":
+        context_for_num = writer.get_existing_context(data["titre"])
+        ch_num = context_for_num.get("nb_chapitres", 0) + 1
+    else:
+        ch_dir = LIVRES_DIR / sanitize(data["titre"]) / "Chapitres"
+        ch_num = next_chapter_number(ch_dir)
 
     if not preview_and_confirm(data, ch_num):
         print("Annulé.")

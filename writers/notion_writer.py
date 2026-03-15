@@ -33,6 +33,7 @@ Note de compatibilité app.py / cli.py :
 
 import logging
 import time
+import unicodedata
 from typing import Any, Optional
 
 import httpx
@@ -306,6 +307,11 @@ class NotionWriter(BaseWriter):
             body["sorts"] = sorts
         return self._notion_post(f"databases/{database_id}/query", body)
 
+    @staticmethod
+    def _normalize(s: str) -> str:
+        """Normalise une chaîne Unicode (NFC) pour éviter les faux négatifs de recherche."""
+        return unicodedata.normalize("NFC", s.strip())
+
     def _find_page_by_title(
         self, db_name: str, title: str, prop: str = "Name"
     ) -> Optional[dict]:
@@ -313,7 +319,7 @@ class NotionWriter(BaseWriter):
         Utilise "Name" — nom par défaut Notion pour la propriété title."""
         resp = self._db_query(
             self._db_ids[db_name],
-            filter={"property": prop, "title": {"equals": title}},
+            filter={"property": prop, "title": {"equals": self._normalize(title)}},
         )
         results = resp.get("results", [])
         return results[0] if results else None

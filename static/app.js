@@ -22,6 +22,11 @@ document.addEventListener('alpine:init', () => {
     toast:       null,
     _toastTimer: null,
 
+    warningsConfirmed: false,
+    iaLevel: 3,
+    _iaLabels: ['', 'Transcription pure', 'Légèrement enrichi', 'Équilibré', 'Analyse approfondie', 'Immersion totale'],
+    _iaDescs:  ['', "L'IA retranscrit ta note sans l'interpréter", "Structuration minimale, ta voix reste dominante", "Mix entre ta note et les connaissances de l'IA", "L'IA développe et contextualise largement", "L'IA enrichit au maximum avec tout son savoir littéraire"],
+
     // Révélation progressive des sections
     showSummary:     false,
     showPersonnages: false,
@@ -70,19 +75,20 @@ document.addEventListener('alpine:init', () => {
     async analyze() {
       if (this.loading || !this.note.trim()) return;
 
-      this.loading      = true;
-      this.analyzed     = false;
-      this.imported     = false;
-      this.data         = null;
-      this.previewFiles = [];
-      this.files        = [];
+      this.loading           = true;
+      this.analyzed          = false;
+      this.imported          = false;
+      this.warningsConfirmed = false;
+      this.data              = null;
+      this.previewFiles      = [];
+      this.files             = [];
       this._resetReveal();
 
       try {
         const res  = await fetch('/analyze', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ note: this.note }),
+          body:    JSON.stringify({ note: this.note, ia_level: this.iaLevel }),
         });
         const json = await res.json();
 
@@ -121,7 +127,7 @@ document.addEventListener('alpine:init', () => {
     _resetReveal() {
       this.showSummary = this.showPersonnages = this.showThemes =
       this.showCitations = this.showWarnings = this.showFiles =
-      this.showImportBtn = false;
+      this.showImportBtn = this.warningsConfirmed = false;
     },
 
     // ── Import ──────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ from config import (
     AUTEURS_DIR,
     MOUVEMENTS_DIR,
     PERSONNAGES_DIR,
+    WRITER_BACKEND,
 )
 from claude_api import call_claude, extract_title
 from writers import get_writer, sanitize, next_chapter_number
@@ -113,6 +114,8 @@ def analyze():
         return jsonify({"error": "La note est vide."}), 400
 
     try:
+        ia_level = int(payload.get("ia_level", 3))
+
         # Passe 1 — extraction du titre (silencieuse)
         title_data = extract_title(raw_note)
         titre      = title_data.get("titre", "")
@@ -126,9 +129,13 @@ def analyze():
                 pass  # continuer sans contexte
 
         # Passe 2 — appel complet avec contexte
-        data    = call_claude(raw_note, context=context)
-        ch_dir  = LIVRES_DIR / sanitize(data["titre"]) / "Chapitres"
-        ch_num  = next_chapter_number(ch_dir)
+        data = call_claude(raw_note, context=context, ia_level=ia_level)
+        if WRITER_BACKEND == "notion":
+            context_for_num = writer.get_existing_context(data["titre"])
+            ch_num = context_for_num.get("nb_chapitres", 0) + 1
+        else:
+            ch_dir = LIVRES_DIR / sanitize(data["titre"]) / "Chapitres"
+            ch_num = next_chapter_number(ch_dir)
         preview = _preview_files(data, ch_num)
         return jsonify({"data": data, "ch_num": ch_num, "preview_files": preview})
     except SystemExit as exc:
@@ -146,15 +153,15 @@ def import_vault():
         return jsonify({"error": "Données manquantes."}), 400
 
     try:
-        ch_path                        = writer.write_chapter(data, ch_num)
+        mvt_path,    mvt_created       = writer.write_mouvement(data)
+        auteur_path, auteur_created    = writer.write_auteur(data)
         idx_path                       = writer.update_index(data, ch_num)
+        ch_path                        = writer.write_chapter(data, ch_num)
         perso_livre_path               = writer.update_personnages(data)
         themes_path                    = writer.update_themes(data)
         cit_path                       = writer.update_citations(data, ch_num)
-        auteur_path, auteur_created    = writer.write_auteur(data)
-        mvt_path,    mvt_created       = writer.write_mouvement(data)
-        perso_ind                      = writer.write_personnages_individuels(data, ch_num)
         bib_path                       = writer.update_bibliotheque(data)
+        perso_ind                      = writer.write_personnages_individuels(data, ch_num)
 
         def rel(p) -> str | None:
             if p is None:

@@ -86,6 +86,41 @@ SYSTEM_PROMPT = textwrap.dedent("""\
 """)
 
 
+IA_LEVEL_INSTRUCTIONS = {
+    1: (
+        "NIVEAU D'IMPLICATION : Transcription pure.\n"
+        "Reste au plus proche de la note brute. Ne complète que les champs "
+        "strictement nécessaires (auteur, titre, mouvement). "
+        "Le résumé doit refléter uniquement ce qui est écrit dans la note, sans ajout. "
+        "Minimise les inférences."
+    ),
+    2: (
+        "NIVEAU D'IMPLICATION : Légèrement enrichi.\n"
+        "Structure et reformule légèrement la note. "
+        "Complète les champs manquants avec discrétion. "
+        "Le résumé reste proche de la note originale."
+    ),
+    3: (
+        "NIVEAU D'IMPLICATION : Équilibré.\n"
+        "Équilibre entre fidélité à la note et enrichissement littéraire. "
+        "Complète naturellement les champs manquants."
+    ),
+    4: (
+        "NIVEAU D'IMPLICATION : Analyse approfondie.\n"
+        "Développe et contextualise largement. "
+        "Enrichis le résumé avec des analyses narratives et psychologiques. "
+        "Apporte une perspective critique sur le passage."
+    ),
+    5: (
+        "NIVEAU D'IMPLICATION : Immersion totale.\n"
+        "Mobilise tout ton savoir littéraire. "
+        "Résumé riche et analytique, contexte historique développé, "
+        "thèmes profondément explorés, citations représentatives, "
+        "liens avec d'autres œuvres du mouvement."
+    ),
+}
+
+
 TITLE_PROMPT = (
     "À partir de cette note de lecture, retourne UNIQUEMENT un JSON :\n"
     '{"titre": "Titre exact de l\'œuvre", "auteur": "Prénom Nom"}\n'
@@ -143,19 +178,22 @@ def _build_context_block(context: dict) -> str:
     )
 
 
-def call_claude(raw_note: str, context: dict = None) -> dict:
+def call_claude(raw_note: str, context: dict = None, ia_level: int = 3) -> dict:
     """
     Envoie la note brute à Claude et retourne le JSON structuré parsé.
     Si context est fourni et non vide (nb_chapitres > 0), injecte le contexte
     existant du livre dans le message utilisateur avant la note brute.
+    ia_level (1-5) injecte une instruction de niveau d'implication en tête du message.
     Quitte le processus en cas d'erreur API ou de JSON invalide.
     """
     client = anthropic.Anthropic()
 
+    level_instruction = IA_LEVEL_INSTRUCTIONS.get(ia_level, IA_LEVEL_INSTRUCTIONS[3])
+
     if context and context.get("nb_chapitres", 0) > 0:
-        user_content = _build_context_block(context) + raw_note
+        user_content = level_instruction + "\n\n" + _build_context_block(context) + raw_note
     else:
-        user_content = "Voici ma note de lecture brute. Génère la fiche JSON :\n\n" + raw_note
+        user_content = level_instruction + "\n\n" + "Voici ma note de lecture brute. Génère la fiche JSON :\n\n" + raw_note
 
     try:
         response = client.messages.create(

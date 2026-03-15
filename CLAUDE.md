@@ -94,9 +94,23 @@ Avant l'appel principal à Claude, le pipeline effectue un appel léger pour ext
 
 2. **Récupération du contexte** : `writer.get_existing_context(titre)` → `{personnages, themes, nb_chapitres}`. Si cette étape échoue, le pipeline continue avec `context = {}`.
 
-3. **Passe 2 — `call_claude(raw_note, context=context)`** : si `context.nb_chapitres > 0`, `_build_context_block(context)` est préfixé au message utilisateur avec personnages, thèmes et numéro de chapitre déjà connus. Sinon, comportement identique à l'ancien (pas d'injection inutile pour un premier chapitre).
+3. **Passe 2 — `call_claude(raw_note, context=context, ia_level=ia_level)`** : si `context.nb_chapitres > 0`, `_build_context_block(context)` est préfixé au message utilisateur avec personnages, thèmes et numéro de chapitre déjà connus. Sinon, comportement identique à l'ancien (pas d'injection inutile pour un premier chapitre).
 
 **Règle d'injection conditionnelle** : le bloc contexte n'est injecté que si `nb_chapitres > 0`. Un premier import passe directement en passe 2.
+
+### Niveau d'implication de l'IA (`ia_level`)
+
+Paramètre entier 1–5 transmis par le frontend via `POST /analyze` (`ia_level`, défaut `3`). Injecté en tête du message utilisateur via `IA_LEVEL_INSTRUCTIONS[ia_level]` dans `call_claude`.
+
+| Valeur | Label | Comportement Claude |
+|--------|-------|---------------------|
+| 1 | Transcription pure | Reste au plus proche de la note brute, minimise les inférences |
+| 2 | Légèrement enrichi | Structure et reformule légèrement, champs manquants complétés avec discrétion |
+| 3 | Équilibré (défaut) | Mix fidélité / enrichissement littéraire naturel |
+| 4 | Analyse approfondie | Développe et contextualise, analyses narratives et psychologiques |
+| 5 | Immersion totale | Mobilise tout le savoir littéraire, résumé riche, liens inter-œuvres |
+
+L'instruction de niveau est toujours injectée en tête, avant le bloc contexte éventuel et la note brute.
 
 **Fonctions `claude_api.py` :**
 
@@ -105,7 +119,7 @@ Avant l'appel principal à Claude, le pipeline effectue un appel léger pour ext
 | `extract_title(raw_note)` | Appel Claude léger — retourne `{titre, auteur}` ou `{}` |
 | `_build_context_block(context)` | Formate le contexte existant en bloc texte pour injection |
 | `_strip_code_fences(text)` | Retire les balises ` ```json ``` ` (mutualisé avec `call_claude`) |
-| `call_claude(raw_note, context=None)` | Appel complet — injecte le contexte si `nb_chapitres > 0` |
+| `call_claude(raw_note, context=None, ia_level=3)` | Appel complet — injecte niveau + contexte si `nb_chapitres > 0` |
 
 ### Routes Flask (`app.py`)
 
