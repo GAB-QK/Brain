@@ -23,24 +23,13 @@ if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
     sys.exit(0)
 
 # ── Imports projet ──────────────────────────────────────────────────────────
-from config import MODEL, VAULT_PATH
+from config import MODEL, VAULT_PATH, LIVRES_DIR
 from input_handler import collect_raw_note
 from claude_api import call_claude
-from vault_writer import (
-    sanitize,
-    next_chapter_number,
-    write_chapter,
-    update_index,
-    update_personnages_livre,
-    update_themes,
-    update_citations,
-    write_auteur,
-    write_mouvement,
-    write_personnages_individuels,
-    update_bibliotheque,
-    LIVRES_DIR,
-)
+from writers import get_writer, sanitize, next_chapter_number
 from cli import preview_and_confirm, print_report
+
+writer = get_writer()
 
 
 def main() -> None:
@@ -61,21 +50,21 @@ def main() -> None:
         print("Annulé.")
         return
 
-    aut_path, aut_created = write_auteur(data)
-    mvt_path, mvt_created = write_mouvement(data)
+    aut_path, aut_created = writer.write_auteur(data)
+    mvt_path, mvt_created = writer.write_mouvement(data)
 
     results = {
-        "chapter":          write_chapter(data, ch_num),
-        "index":            update_index(data, ch_num),
-        "personnages_livre": update_personnages_livre(data),
-        "themes":           update_themes(data),
-        "citations":        update_citations(data, ch_num),
-        "bibliotheque":     update_bibliotheque(data),
-        "auteur":           aut_path,
-        "auteur_created":   aut_created,
-        "mouvement":        mvt_path,
+        "chapter":           writer.write_chapter(data, ch_num),
+        "index":             writer.update_index(data, ch_num),
+        "personnages_livre": writer.update_personnages(data),
+        "themes":            writer.update_themes(data),
+        "citations":         writer.update_citations(data, ch_num),
+        "bibliotheque":      writer.update_bibliotheque(data),
+        "auteur":            aut_path,
+        "auteur_created":    aut_created,
+        "mouvement":         mvt_path,
         "mouvement_created": mvt_created,
-        "personnages_ind":  write_personnages_individuels(data),
+        "personnages_ind":   writer.write_personnages_individuels(data),
     }
 
     print_report(data, ch_num, results)

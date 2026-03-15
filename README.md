@@ -39,6 +39,13 @@ pip install -r requirements.txt
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
 VAULT_PATH=/chemin/vers/ton/vault/Obsidian
+
+# Backend de destination : obsidian (défaut) ou notion
+WRITER_BACKEND=obsidian
+
+# Notion (laisser vide si non utilisé)
+NOTION_TOKEN=
+NOTION_ROOT_PAGE_ID=
 ```
 
 > La clé API n'est jamais committée (`.gitignore`).
@@ -127,12 +134,16 @@ Tous les liens internes utilisent la syntaxe `[[Nom]]` sans extension.
 Brain/
 ├── app.py               ← serveur Flask (interface web)
 ├── main.py              ← point d'entrée terminal : python main.py
-├── config.py            ← constantes et chemins vault
+├── config.py            ← constantes, chemins vault et WRITER_BACKEND
 ├── claude_api.py        ← appel API + prompt système
 ├── markdown_builder.py  ← génération du Markdown
-├── vault_writer.py      ← écriture dans Obsidian
 ├── input_handler.py     ← lecture note (texte, futur: audio, OCR)
 ├── cli.py               ← affichage terminal et confirmation
+├── writers/
+│   ├── __init__.py          ← factory get_writer()
+│   ├── base_writer.py       ← interface abstraite BaseWriter
+│   ├── obsidian_writer.py   ← backend Obsidian (fichiers .md locaux)
+│   └── notion_writer.py     ← backend Notion (stubs, à implémenter)
 ├── templates/
 │   ├── base.html                    ← layout commun (CDN, polices)
 │   ├── index.html                   ← page principale

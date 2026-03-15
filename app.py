@@ -16,19 +16,9 @@ from config import (
     PERSONNAGES_DIR,
 )
 from claude_api import call_claude
-from vault_writer import (
-    sanitize,
-    next_chapter_number,
-    write_chapter,
-    update_index,
-    update_personnages_livre,
-    update_themes,
-    update_citations,
-    write_auteur,
-    write_mouvement,
-    write_personnages_individuels,
-    update_bibliotheque,
-)
+from writers import get_writer, sanitize, next_chapter_number
+
+writer = get_writer()
 
 app = Flask(__name__)
 
@@ -107,15 +97,15 @@ def import_vault():
         return jsonify({"error": "Données manquantes."}), 400
 
     try:
-        ch_path                        = write_chapter(data, ch_num)
-        idx_path                       = update_index(data, ch_num)
-        perso_livre_path               = update_personnages_livre(data)
-        themes_path                    = update_themes(data)
-        cit_path                       = update_citations(data, ch_num)
-        auteur_path, auteur_created    = write_auteur(data)
-        mvt_path,    mvt_created       = write_mouvement(data)
-        perso_ind                      = write_personnages_individuels(data)
-        bib_path                       = update_bibliotheque(data)
+        ch_path                        = writer.write_chapter(data, ch_num)
+        idx_path                       = writer.update_index(data, ch_num)
+        perso_livre_path               = writer.update_personnages(data)
+        themes_path                    = writer.update_themes(data)
+        cit_path                       = writer.update_citations(data, ch_num)
+        auteur_path, auteur_created    = writer.write_auteur(data)
+        mvt_path,    mvt_created       = writer.write_mouvement(data)
+        perso_ind                      = writer.write_personnages_individuels(data)
+        bib_path                       = writer.update_bibliotheque(data)
 
         def rel(p: Path) -> str:
             return str(p.relative_to(VAULT_PATH))

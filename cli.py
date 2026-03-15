@@ -3,7 +3,7 @@ Interface terminal — prévisualisation des fichiers à écrire et confirmation
 """
 
 from config import VAULT_PATH
-from vault_writer import sanitize
+from writers import sanitize
 
 
 def preview_and_confirm(data: dict, ch_num: int) -> bool:

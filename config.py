@@ -44,6 +44,13 @@ CITATIONS_DIR   = LITTERATURE / "Citations"
 BIBLIOTHEQUE    = LITTERATURE / "00_Bibliotheque.md"
 
 # ---------------------------------------------------------------------------
+# Backend d'écriture
+# ---------------------------------------------------------------------------
+WRITER_BACKEND       = os.getenv("WRITER_BACKEND", "obsidian")
+NOTION_TOKEN         = os.getenv("NOTION_TOKEN", "")
+NOTION_ROOT_PAGE_ID  = os.getenv("NOTION_ROOT_PAGE_ID", "")
+
+# ---------------------------------------------------------------------------
 # Date du jour (utilisée dans les frontmatters)
 # ---------------------------------------------------------------------------
 TODAY = date.today().isoformat()

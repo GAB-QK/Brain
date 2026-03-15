@@ -26,6 +26,13 @@ Configuration via `.env` (jamais commité) :
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 VAULT_PATH=/chemin/vers/vault/Obsidian
+
+# Backend de destination (obsidian ou notion)
+WRITER_BACKEND=obsidian
+
+# Notion (laisser vide si non utilisé)
+NOTION_TOKEN=
+NOTION_ROOT_PAGE_ID=
 ```
 
 ---
@@ -36,12 +43,16 @@ VAULT_PATH=/chemin/vers/vault/Obsidian
 Brain/
 ├── app.py               ← serveur Flask (interface web, point d'entrée principal)
 ├── main.py              ← point d'entrée terminal, orchestration uniquement
-├── config.py            ← constantes MODEL, VAULT_PATH et chemins, chargement .env
+├── config.py            ← constantes MODEL, VAULT_PATH, WRITER_BACKEND et chemins
 ├── claude_api.py        ← SYSTEM_PROMPT, call_claude(), gestion erreurs API
 ├── markdown_builder.py  ← toutes les fonctions build_*() et fm()
-├── vault_writer.py      ← toutes les fonctions write_*() et update_*(), sanitize()
 ├── input_handler.py     ← show_help(), collect_raw_note() + validation args + stubs Whisper / Tesseract
 ├── cli.py               ← preview_and_confirm(), print_report()
+├── writers/
+│   ├── __init__.py          ← factory get_writer(), exports sanitize / next_chapter_number
+│   ├── base_writer.py       ← classe abstraite BaseWriter (10 méthodes)
+│   ├── obsidian_writer.py   ← ObsidianWriter : écriture fichiers .md dans le vault local
+│   └── notion_writer.py     ← NotionWriter : stubs avec TODO détaillés (à implémenter)
 ├── templates/
 │   ├── base.html                    ← layout commun (CDN, polices, Alpine.js)
 │   ├── index.html                   ← page principale (layout deux colonnes)
@@ -54,10 +65,25 @@ Brain/
 ```
 
 **Ordre des dépendances (pas d'import circulaire) :**
-`config` ← `markdown_builder` ← `vault_writer` ← `main` / `app`
+`config` ← `markdown_builder` ← `writers/obsidian_writer` ← `writers/__init__` ← `main` / `app`
 `config` ← `claude_api` ← `main` / `app`
-`config` + `vault_writer` ← `cli` ← `main`
+`config` + `writers` ← `cli` ← `main`
 `input_handler` ← `main` (aucune dépendance projet)
+
+**Interface abstraite `BaseWriter` (writers/base_writer.py) :**
+
+| Méthode | Description |
+|---------|-------------|
+| `write_chapter(data, ch_num)` | Crée la fiche chapitre |
+| `update_index(data, ch_num)` | Crée ou met à jour l'index du livre |
+| `update_personnages(data)` | Agrège les personnages du livre |
+| `update_themes(data)` | Agrège les thèmes du livre |
+| `update_citations(data, ch_num)` | Agrège les citations du livre |
+| `write_auteur(data)` | Crée la fiche auteur si absente |
+| `write_mouvement(data)` | Crée la fiche mouvement si absente |
+| `write_personnages_individuels(data)` | Crée les fiches personnages individuelles |
+| `update_bibliotheque(data)` | Met à jour l'index global |
+| `get_existing_context(titre)` | Retourne `{personnages, themes, nb_chapitres}` |
 
 ### Routes Flask (`app.py`)
 
@@ -196,3 +222,4 @@ date_modification: 2026-03-14  # mis à jour automatiquement à chaque append
 - [ ] **Entrée image/scan** : intégration Tesseract OCR pour extraire le texte d'une photo de page
 - [ ] **Mode batch** : traiter plusieurs notes d'un dossier en une seule passe
 - [ ] **Mise à jour des fiches auteur** : enrichissement progressif au fil des imports
+- [ ] **Backend Notion** : implémenter `NotionWriter` (voir TODO dans `writers/notion_writer.py`)

@@ -1,0 +1,300 @@
+"""
+Backend Obsidian — écrit des fichiers Markdown dans un vault Obsidian local.
+Déplacement de vault_writer.py dans une classe ObsidianWriter(BaseWriter).
+"""
+
+import re
+from pathlib import Path
+
+from config import (
+    TODAY,
+    AUTEURS_DIR,
+    MOUVEMENTS_DIR,
+    PERSONNAGES_DIR,
+    LIVRES_DIR,
+    CITATIONS_DIR,
+    LITTERATURE,
+    BIBLIOTHEQUE,
+)
+from markdown_builder import (
+    build_chapter_md,
+    build_auteur_md,
+    build_mouvement_md,
+    build_personnage_md,
+    build_index_md,
+    build_personnages_livre_md,
+    build_themes_livre_md,
+    build_citations_header,
+    build_bibliotheque_header,
+)
+from writers.base_writer import BaseWriter
+
+
+# ---------------------------------------------------------------------------
+# Utilitaires (fonctions module-level, utilisables sans instancier la classe)
+# ---------------------------------------------------------------------------
+
+def sanitize(text: str) -> str:
+    """Retire les caractères interdits dans les noms de fichiers/dossiers."""
+    return re.sub(r'[\\/:*?"<>|]', "", text).strip()
+
+
+def next_chapter_number(chapitres_dir: Path) -> int:
+    """Retourne le prochain numéro de chapitre disponible."""
+    if not chapitres_dir.exists():
+        return 1
+    nums = [
+        int(m.group(1))
+        for f in chapitres_dir.glob("Ch_*.md")
+        if (m := re.match(r"Ch_(\d+)", f.stem))
+    ]
+    return max(nums) + 1 if nums else 1
+
+
+def _update_date_modification(path: Path) -> None:
+    """Met à jour date_modification dans le frontmatter YAML du fichier."""
+    content = path.read_text(encoding="utf-8")
+    updated = re.sub(
+        r"^(date_modification:\s*)\S+",
+        rf"\g<1>{TODAY}",
+        content,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if updated != content:
+        path.write_text(updated, encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Backend Obsidian
+# ---------------------------------------------------------------------------
+
+class ObsidianWriter(BaseWriter):
+    """Écrit toutes les fiches dans un vault Obsidian local (fichiers .md)."""
+
+    # ── Chapitre ────────────────────────────────────────────────────────────
+
+    def write_chapter(self, data: dict, ch_num: int) -> Path:
+        """Écrit Livres/<Titre>/Chapitres/Ch_XX.md."""
+        ch_dir = LIVRES_DIR / sanitize(data["titre"]) / "Chapitres"
+        ch_dir.mkdir(parents=True, exist_ok=True)
+        ch_file = ch_dir / f"Ch_{ch_num:02d}.md"
+        ch_file.write_text(build_chapter_md(data, ch_num), encoding="utf-8")
+        return ch_file
+
+    # ── Index du livre ───────────────────────────────────────────────────────
+
+    def update_index(self, data: dict, ch_num: int) -> Path:
+        """Crée ou met à jour Livres/<Titre>/00_Index.md."""
+        titre_safe = sanitize(data["titre"])
+        mouvement  = data.get("mouvement_litteraire", {}).get("nom", "")
+        index_path = LIVRES_DIR / titre_safe / "00_Index.md"
+        chapitre   = data.get("chapitre_ou_passage", "")
+        new_line   = f"- [[Ch_{ch_num:02d}]] — {chapitre}"
+
+        if not index_path.exists():
+            index_path.write_text(
+                build_index_md(
+                    data["titre"], data["auteur"], mouvement,
+                    data.get("contexte_historique_oeuvre", ""),
+                ),
+                encoding="utf-8",
+            )
+
+        content = index_path.read_text(encoding="utf-8")
+        if new_line not in content:
+            content = content.replace("<!-- chapitres -->", f"<!-- chapitres -->\n{new_line}")
+            index_path.write_text(content, encoding="utf-8")
+            _update_date_modification(index_path)
+
+        return index_path
+
+    # ── Personnages du livre ─────────────────────────────────────────────────
+
+    def update_personnages(self, data: dict) -> Path:
+        """Crée ou complète Livres/<Titre>/Personnages.md (append uniquement)."""
+        path = LIVRES_DIR / sanitize(data["titre"]) / "Personnages.md"
+
+        if not path.exists():
+            path.write_text(
+                build_personnages_livre_md(data["titre"], data["auteur"]),
+                encoding="utf-8",
+            )
+
+        content  = path.read_text(encoding="utf-8")
+        nouveaux = [p for p in data.get("personnages", []) if f"[[{p}]]" not in content]
+        if nouveaux:
+            new_content = content + "".join(f"- [[{p}]]\n" for p in nouveaux)
+            path.write_text(new_content, encoding="utf-8")
+            _update_date_modification(path)
+
+        return path
+
+    # ── Thèmes du livre ──────────────────────────────────────────────────────
+
+    def update_themes(self, data: dict) -> Path:
+        """Crée ou complète Livres/<Titre>/Themes.md (append uniquement)."""
+        path = LIVRES_DIR / sanitize(data["titre"]) / "Themes.md"
+
+        if not path.exists():
+            path.write_text(
+                build_themes_livre_md(data["titre"], data["auteur"]),
+                encoding="utf-8",
+            )
+
+        content  = path.read_text(encoding="utf-8")
+        # Vérifie la forme stockée (#theme_avec_underscores) pour éviter les doublons
+        nouveaux = [t for t in data.get("themes", []) if f"#{'_'.join(t.split())}" not in content]
+        if nouveaux:
+            new_content = content + "".join(f"- #{'_'.join(t.split())}\n" for t in nouveaux)
+            path.write_text(new_content, encoding="utf-8")
+            _update_date_modification(path)
+
+        return path
+
+    # ── Citations ────────────────────────────────────────────────────────────
+
+    def update_citations(self, data: dict, ch_num: int) -> Path:
+        """Crée ou alimente Citations/<Titre>_citations.md (append uniquement)."""
+        titre_safe = sanitize(data["titre"])
+        CITATIONS_DIR.mkdir(parents=True, exist_ok=True)
+        path      = CITATIONS_DIR / f"{titre_safe}_citations.md"
+        chapitre  = data.get("chapitre_ou_passage", f"Ch_{ch_num:02d}")
+        citations = data.get("citations", [])
+
+        if not path.exists():
+            path.write_text(build_citations_header(data["titre"], data["auteur"]), encoding="utf-8")
+
+        if citations:
+            content   = path.read_text(encoding="utf-8")
+            nouvelles = [c for c in citations if c not in content]
+            if nouvelles:
+                new_content = content + f"\n## {chapitre}\n\n" + "".join(f"> {c}\n\n" for c in nouvelles)
+                path.write_text(new_content, encoding="utf-8")
+                _update_date_modification(path)
+
+        return path
+
+    # ── Auteur ───────────────────────────────────────────────────────────────
+
+    def write_auteur(self, data: dict) -> tuple[Path, bool]:
+        """Crée Auteurs/<Nom>.md si absent. Retourne (path, créé)."""
+        AUTEURS_DIR.mkdir(parents=True, exist_ok=True)
+        fiche     = data.get("fiche_auteur", {})
+        nom       = sanitize(fiche.get("nom", data["auteur"]))
+        mouvement = data.get("mouvement_litteraire", {}).get("nom", "")
+        path      = AUTEURS_DIR / f"{nom}.md"
+
+        if path.exists():
+            return path, False
+
+        path.write_text(
+            build_auteur_md(fiche, mouvement, data.get("auteurs_lies", [])),
+            encoding="utf-8",
+        )
+        return path, True
+
+    # ── Mouvement ────────────────────────────────────────────────────────────
+
+    def write_mouvement(self, data: dict) -> tuple[Path, bool]:
+        """Crée Mouvements/<Nom>.md si absent. Retourne (path, créé)."""
+        MOUVEMENTS_DIR.mkdir(parents=True, exist_ok=True)
+        mouvement = data.get("mouvement_litteraire", {})
+        nom       = sanitize(mouvement.get("nom", "Inconnu"))
+        path      = MOUVEMENTS_DIR / f"{nom}.md"
+
+        if path.exists():
+            return path, False
+
+        path.write_text(
+            build_mouvement_md(mouvement, data["auteur"], data.get("auteurs_lies", [])),
+            encoding="utf-8",
+        )
+        return path, True
+
+    # ── Personnages individuels ───────────────────────────────────────────────
+
+    def write_personnages_individuels(self, data: dict) -> list[tuple[Path, bool]]:
+        """Crée Personnages/<Nom>.md pour chaque personnage, si absent."""
+        PERSONNAGES_DIR.mkdir(parents=True, exist_ok=True)
+        titre  = data["titre"]
+        auteur = data["auteur"]
+
+        details_map: dict[str, str] = {
+            p["nom"]: p.get("description", "")
+            for p in data.get("personnages_details", [])
+            if isinstance(p, dict) and "nom" in p
+        }
+
+        results = []
+        for nom in data.get("personnages", []):
+            path = PERSONNAGES_DIR / f"{sanitize(nom)}.md"
+            if path.exists():
+                results.append((path, False))
+                continue
+            path.write_text(
+                build_personnage_md(nom, details_map.get(nom, ""), titre, auteur),
+                encoding="utf-8",
+            )
+            results.append((path, True))
+        return results
+
+    # ── Bibliothèque globale ─────────────────────────────────────────────────
+
+    def update_bibliotheque(self, data: dict) -> Path:
+        """Crée ou met à jour Littérature/00_Bibliotheque.md (append uniquement)."""
+        LITTERATURE.mkdir(parents=True, exist_ok=True)
+        titre_safe = sanitize(data["titre"])
+        new_line   = f"- [[{titre_safe}]] — [[{data['auteur']}]]"
+
+        if not BIBLIOTHEQUE.exists():
+            BIBLIOTHEQUE.write_text(build_bibliotheque_header(), encoding="utf-8")
+
+        content = BIBLIOTHEQUE.read_text(encoding="utf-8")
+        if new_line not in content:
+            content = content.replace("<!-- livres -->", f"<!-- livres -->\n{new_line}")
+            BIBLIOTHEQUE.write_text(content, encoding="utf-8")
+            _update_date_modification(BIBLIOTHEQUE)
+
+        return BIBLIOTHEQUE
+
+    # ── Contexte existant ────────────────────────────────────────────────────
+
+    def get_existing_context(self, titre: str) -> dict:
+        """
+        Lit les fichiers Obsidian existants pour le livre et retourne le contexte
+        (personnages, thèmes, nombre de chapitres) à transmettre à Claude lors
+        des imports suivants.
+        """
+        titre_safe  = sanitize(titre)
+        livre_dir   = LIVRES_DIR / titre_safe
+        ch_dir      = livre_dir / "Chapitres"
+        perso_path  = livre_dir / "Personnages.md"
+        themes_path = livre_dir / "Themes.md"
+
+        # Nombre de chapitres déjà importés
+        nb_chapitres = 0
+        if ch_dir.exists():
+            nb_chapitres = len([
+                f for f in ch_dir.glob("Ch_*.md")
+                if re.match(r"Ch_\d+", f.stem)
+            ])
+
+        # Personnages déjà enregistrés (extraits des wikilinks [[Nom]])
+        personnages: list[str] = []
+        if perso_path.exists():
+            content = perso_path.read_text(encoding="utf-8")
+            personnages = re.findall(r"\[\[([^\]]+)\]\]", content)
+
+        # Thèmes déjà enregistrés (extraits des tags #theme_slug)
+        themes: list[str] = []
+        if themes_path.exists():
+            content = themes_path.read_text(encoding="utf-8")
+            slugs   = re.findall(r"#(\w+)", content)
+            themes  = [s.replace("_", " ") for s in slugs]
+
+        return {
+            "personnages":  personnages,
+            "themes":       themes,
+            "nb_chapitres": nb_chapitres,
+        }
