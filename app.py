@@ -39,7 +39,7 @@ def _preview_files(data: dict, ch_num: int) -> list[dict]:
         {"path": f"Livres/{titre_safe}/00_Index.md",              "status": "update"},
         {"path": f"Livres/{titre_safe}/Personnages.md",           "status": "update"},
         {"path": f"Livres/{titre_safe}/Themes.md",                "status": "update"},
-        {"path": f"Citations/{titre_safe}_citations.md",          "status": "update"},
+        {"path": f"Livres/{titre_safe}/Citations.md",             "status": "update"},
         {"path": "00_Bibliotheque.md",                            "status": "update"},
         {
             "path":   f"Auteurs/{auteur_safe}.md",
@@ -104,7 +104,7 @@ def import_vault():
         cit_path                       = writer.update_citations(data, ch_num)
         auteur_path, auteur_created    = writer.write_auteur(data)
         mvt_path,    mvt_created       = writer.write_mouvement(data)
-        perso_ind                      = writer.write_personnages_individuels(data)
+        perso_ind                      = writer.write_personnages_individuels(data, ch_num)
         bib_path                       = writer.update_bibliotheque(data)
 
         def rel(p: Path) -> str:

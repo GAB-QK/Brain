@@ -81,7 +81,7 @@ Brain/
 | `update_citations(data, ch_num)` | Agrège les citations du livre |
 | `write_auteur(data)` | Crée la fiche auteur si absente |
 | `write_mouvement(data)` | Crée la fiche mouvement si absente |
-| `write_personnages_individuels(data)` | Crée les fiches personnages individuelles |
+| `write_personnages_individuels(data, ch_num)` | Crée ou met à jour les fiches personnages (liens inter-œuvres) |
 | `update_bibliotheque(data)` | Met à jour l'index global |
 | `get_existing_context(titre)` | Retourne `{personnages, themes, nb_chapitres}` |
 
@@ -114,28 +114,28 @@ Littérature/
 ├── Mouvements/
 │   └── Romantisme.md               ← fiche mouvement (créée une fois, jamais écrasée)
 ├── Personnages/
-│   └── Nom du personnage.md        ← fiche personnage (créée une fois, jamais écrasée)
-├── Livres/
-│   └── Titre du livre/
-│       ├── 00_Index.md             ← vue d'ensemble + liens chapitres (append)
-│       ├── Personnages.md          ← liste agrégée des personnages (append)
-│       ├── Themes.md               ← liste agrégée des thèmes (append)
-│       └── Chapitres/
-│           └── Ch_01.md            ← une note par chapitre/passage (nouveau fichier)
-└── Citations/
-    └── Titre_citations.md          ← toutes les citations du livre (append)
+│   └── Nom du personnage.md        ← fiche personnage — mise à jour à chaque import (liens inter-œuvres)
+└── Livres/
+    └── Titre du livre/
+        ├── 00_Index.md             ← vue d'ensemble + liens chapitres (append)
+        ├── Personnages.md          ← liste agrégée des personnages (append)
+        ├── Themes.md               ← liste agrégée des thèmes (append)
+        ├── Citations.md            ← toutes les citations du livre (append)
+        └── Chapitres/
+            └── Ch_01.md            ← une note par chapitre/passage (nouveau fichier)
 ```
 
 ---
 
 ## Règles de comportement critiques
 
-1. **Ne jamais écraser** `Auteurs/*.md`, `Mouvements/*.md`, `Personnages/*.md` — créés une seule fois
-2. **Toujours valider en terminal** avant toute écriture dans le vault (aperçu + confirmation o/n)
-3. **Liens internes** toujours en syntaxe Obsidian `[[Nom du fichier]]` sans extension `.md`
-4. **Append uniquement** pour `Personnages.md`, `Themes.md`, `Citations/*.md`, `00_Index.md`, `00_Bibliotheque.md`
-5. **Auto-numérotation** des chapitres : `Ch_01.md`, `Ch_02.md`… basée sur les fichiers existants
-6. **Frontmatter YAML** en tête de chaque fichier généré — voir règles détaillées ci-dessous
+1. **Ne jamais écraser** `Auteurs/*.md` et `Mouvements/*.md` — créés une seule fois, jamais regénérés
+2. **Personnages** (`Personnages/*.md`) — jamais recréés, mais **mis à jour** à chaque import : nouvelles œuvres ajoutées dans `oeuvres_liees`, `## Présent dans ces œuvres` et `## Apparitions par œuvre` (append strict, rien n'est supprimé)
+3. **Toujours valider en terminal** avant toute écriture dans le vault (aperçu + confirmation o/n)
+4. **Liens internes** toujours en syntaxe Obsidian `[[Nom du fichier]]` sans extension `.md`
+5. **Append uniquement** pour `Personnages.md`, `Themes.md`, `Citations.md`, `00_Index.md`, `00_Bibliotheque.md`
+6. **Auto-numérotation** des chapitres : `Ch_01.md`, `Ch_02.md`… basée sur les fichiers existants
+7. **Frontmatter YAML** en tête de chaque fichier généré — voir règles détaillées ci-dessous
 
 ---
 
@@ -160,10 +160,10 @@ Schéma par type de note :
 | `00_Index.md` | `type/livre`, `mouvement/<m>`, `statut/importé` |
 | `Auteurs/*.md` | `type/auteur`, `mouvement/<m>`, `statut/importé` |
 | `Mouvements/*.md` | `type/mouvement`, `statut/importé` |
-| `Personnages/*.md` | `type/personnage`, `statut/importé` |
+| `Personnages/*.md` | `type/personnage`, `statut/importé` + `oeuvres_liees: ["[[Titre]]"…]` |
 | `Personnages.md` (livre) | `type/personnages-livre`, `statut/importé` |
 | `Themes.md` (livre) | `type/themes-livre`, `statut/importé` |
-| `Citations/*.md` | `type/citations`, `statut/importé` |
+| `Citations.md` (livre) | `type/citations`, `statut/importé` |
 | `00_Bibliotheque.md` | `type/bibliotheque`, `statut/importé` |
 
 ### Wikilinks — toujours entre guillemets doubles
@@ -197,8 +197,8 @@ date_modification: 2026-03-14  # mis à jour automatiquement à chaque append
 - [x] Appel API Claude avec prompt système JSON structuré
 - [x] Génération des fiches chapitre, auteur, mouvement
 - [x] Index par livre (`00_Index.md`)
-- [x] Citations agrégées par livre
-- [x] Personnages agrégés par livre + fiches individuelles
+- [x] Citations agrégées par livre dans `Livres/<Titre>/Citations.md` (plus de dossier global `Citations/`)
+- [x] Personnages agrégés par livre + fiches individuelles avec liens inter-œuvres (`oeuvres_liees`, `## Présent dans ces œuvres`, `## Apparitions par œuvre`)
 - [x] Index global de la bibliothèque (`00_Bibliotheque.md`)
 - [x] Frontmatter YAML sur tous les fichiers générés
 - [x] Configuration via `.env`

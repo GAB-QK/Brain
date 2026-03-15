@@ -64,7 +64,7 @@ def main() -> None:
         "auteur_created":    aut_created,
         "mouvement":         mvt_path,
         "mouvement_created": mvt_created,
-        "personnages_ind":   writer.write_personnages_individuels(data),
+        "personnages_ind":   writer.write_personnages_individuels(data, ch_num),
     }
 
     print_report(data, ch_num, results)

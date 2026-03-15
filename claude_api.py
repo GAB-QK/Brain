@@ -25,8 +25,8 @@ SYSTEM_PROMPT = textwrap.dedent("""\
       "resume": "Résumé du chapitre ou du passage",
       "personnages": ["Personnage 1", "Personnage 2"],
       "personnages_details": [
-        {"nom": "Personnage 1", "description": "Description courte (1-2 phrases)"},
-        {"nom": "Personnage 2", "description": "Description courte (1-2 phrases)"}
+        {"nom": "Personnage 1", "description": "Description courte (1-2 phrases)", "apparition": "Rôle ou présence dans ce chapitre (1 phrase)"},
+        {"nom": "Personnage 2", "description": "Description courte (1-2 phrases)", "apparition": "Rôle ou présence dans ce chapitre (1 phrase)"}
       ],
       "citations": ["Citation textuelle 1", "Citation textuelle 2"],
       "themes": ["theme1", "theme2", "theme3"],
@@ -55,6 +55,8 @@ SYSTEM_PROMPT = textwrap.dedent("""\
       infère-la à partir de tes connaissances littéraires.
     - Les champs sont toujours présents, même si vides ([]).
     - personnages_details doit contenir une entrée pour chaque élément de personnages.
+    - personnages_details[].apparition : une phrase courte décrivant le rôle ou la
+      présence de ce personnage dans le chapitre spécifique importé.
     - Les citations doivent être des phrases réelles tirées de l'œuvre, ou,
       à défaut, des phrases représentatives du style de l'auteur.
 

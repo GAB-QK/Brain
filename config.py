@@ -40,7 +40,6 @@ AUTEURS_DIR     = LITTERATURE / "Auteurs"
 MOUVEMENTS_DIR  = LITTERATURE / "Mouvements"
 PERSONNAGES_DIR = LITTERATURE / "Personnages"
 LIVRES_DIR      = LITTERATURE / "Livres"
-CITATIONS_DIR   = LITTERATURE / "Citations"
 BIBLIOTHEQUE    = LITTERATURE / "00_Bibliotheque.md"
 
 # ---------------------------------------------------------------------------

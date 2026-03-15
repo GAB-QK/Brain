@@ -29,7 +29,7 @@ def preview_and_confirm(data: dict, ch_num: int) -> bool:
     print(f"    ~  {titre_safe}/00_Index.md")
     print(f"    ~  {titre_safe}/Personnages.md")
     print(f"    ~  {titre_safe}/Themes.md")
-    print(f"    ~  Citations/{titre_safe}_citations.md")
+    print(f"    ~  {titre_safe}/Citations.md")
     print(f"    ~  00_Bibliotheque.md")
     print(f"    ?  Auteurs/{auteur_safe}.md  (créé si absent)")
     print(f"    ?  Mouvements/{mvt_safe}.md  (créé si absent)")

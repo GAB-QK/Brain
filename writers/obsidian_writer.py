@@ -12,7 +12,6 @@ from config import (
     MOUVEMENTS_DIR,
     PERSONNAGES_DIR,
     LIVRES_DIR,
-    CITATIONS_DIR,
     LITTERATURE,
     BIBLIOTHEQUE,
 )
@@ -155,10 +154,11 @@ class ObsidianWriter(BaseWriter):
     # ── Citations ────────────────────────────────────────────────────────────
 
     def update_citations(self, data: dict, ch_num: int) -> Path:
-        """Crée ou alimente Citations/<Titre>_citations.md (append uniquement)."""
+        """Crée ou alimente Livres/<Titre>/Citations.md (append uniquement)."""
         titre_safe = sanitize(data["titre"])
-        CITATIONS_DIR.mkdir(parents=True, exist_ok=True)
-        path      = CITATIONS_DIR / f"{titre_safe}_citations.md"
+        livre_dir  = LIVRES_DIR / titre_safe
+        livre_dir.mkdir(parents=True, exist_ok=True)
+        path      = livre_dir / "Citations.md"
         chapitre  = data.get("chapitre_ou_passage", f"Ch_{ch_num:02d}")
         citations = data.get("citations", [])
 
@@ -214,30 +214,124 @@ class ObsidianWriter(BaseWriter):
 
     # ── Personnages individuels ───────────────────────────────────────────────
 
-    def write_personnages_individuels(self, data: dict) -> list[tuple[Path, bool]]:
-        """Crée Personnages/<Nom>.md pour chaque personnage, si absent."""
+    def write_personnages_individuels(self, data: dict, ch_num: int) -> list[tuple[Path, bool]]:
+        """Crée ou met à jour Personnages/<Nom>.md avec liens inter-œuvres."""
         PERSONNAGES_DIR.mkdir(parents=True, exist_ok=True)
         titre  = data["titre"]
         auteur = data["auteur"]
 
-        details_map: dict[str, str] = {
-            p["nom"]: p.get("description", "")
+        details_map: dict[str, dict] = {
+            p["nom"]: p
             for p in data.get("personnages_details", [])
             if isinstance(p, dict) and "nom" in p
         }
 
         results = []
         for nom in data.get("personnages", []):
-            path = PERSONNAGES_DIR / f"{sanitize(nom)}.md"
-            if path.exists():
+            path    = PERSONNAGES_DIR / f"{sanitize(nom)}.md"
+            details = details_map.get(nom, {})
+            if not path.exists():
+                path.write_text(
+                    build_personnage_md(
+                        nom,
+                        details.get("description", ""),
+                        titre, auteur,
+                        ch_num,
+                        details.get("apparition", ""),
+                    ),
+                    encoding="utf-8",
+                )
+                results.append((path, True))
+            else:
+                self._update_personnage_existing(
+                    path, titre, auteur,
+                    f"Ch_{ch_num:02d}",
+                    details.get("apparition", ""),
+                )
                 results.append((path, False))
-                continue
-            path.write_text(
-                build_personnage_md(nom, details_map.get(nom, ""), titre, auteur),
-                encoding="utf-8",
-            )
-            results.append((path, True))
         return results
+
+    def _update_personnage_existing(
+        self, path: Path, titre: str, auteur: str, ch_label: str, apparition: str,
+    ) -> None:
+        """Met à jour une fiche personnage existante avec un nouveau livre/chapitre."""
+        content  = path.read_text(encoding="utf-8")
+        modified = False
+        _FM_SEP  = "\n---\n"
+
+        # ── 1. Frontmatter : ajouter [[titre]] à oeuvres_liees ───────────────
+        try:
+            fm_close = content.index(_FM_SEP, 3)
+        except ValueError:
+            fm_close = -1
+
+        if fm_close != -1:
+            frontmatter = content[:fm_close]
+            body        = content[fm_close + len(_FM_SEP):]
+            wikilink    = f"[[{titre}]]"
+
+            if wikilink not in frontmatter:
+                entry = f'  - "{wikilink}"'
+                if "oeuvres_liees:" in frontmatter:
+                    new_fm = re.sub(
+                        r'(oeuvres_liees:(?:\n  - "[^"]*")*)',
+                        rf'\1\n{entry}',
+                        frontmatter,
+                        count=1,
+                    )
+                else:
+                    new_fm = frontmatter.replace(
+                        "\naliases: []",
+                        f"\noeuvres_liees:\n{entry}\naliases: []",
+                    )
+                if new_fm != frontmatter:
+                    content  = new_fm + _FM_SEP + body
+                    modified = True
+
+        # ── 2. Corps : section "Présent dans ces œuvres" ────────────────────
+        ligne_oeuvre = f"- [[{titre}]] — [[{auteur}]]"
+        if ligne_oeuvre not in content:
+            section_hdr = "## Présent dans ces œuvres"
+            if section_hdr in content:
+                idx       = content.index(section_hdr) + len(section_hdr)
+                end_match = re.search(r"\n---\n|\n## ", content[idx:])
+                end       = idx + end_match.start() if end_match else len(content)
+                sec       = content[idx:end]
+                content   = content[:idx] + sec.rstrip("\n") + f"\n{ligne_oeuvre}\n" + content[end:]
+                modified  = True
+
+        # ── 3. Corps : section "Apparitions par œuvre" ──────────────────────
+        ch_line     = f"- [[{ch_label}]] — {apparition}" if apparition else f"- [[{ch_label}]]"
+        section_app = "## Apparitions par œuvre"
+        subsection  = f"### [[{titre}]]"
+
+        if section_app in content and ch_line not in content:
+            app_idx = content.index(section_app)
+            sub_idx = content.find(subsection, app_idx)
+            if sub_idx == -1:
+                # Nouvelle sous-section à la fin du fichier
+                content  = content.rstrip("\n") + f"\n\n{subsection}\n\n{ch_line}\n"
+                modified = True
+            else:
+                sub_start  = sub_idx + len(subsection)
+                next_sub   = re.search(r"\n### ", content[sub_start:])
+                sub_end    = sub_start + next_sub.start() if next_sub else len(content)
+                sub_sec    = content[sub_start:sub_end]
+                content    = (
+                    content[:sub_start]
+                    + sub_sec.rstrip("\n") + f"\n{ch_line}\n"
+                    + content[sub_end:]
+                )
+                modified = True
+
+        # ── 4. date_modification ─────────────────────────────────────────────
+        if modified:
+            content = re.sub(
+                r"^(date_modification:\s*)\S+",
+                rf"\g<1>{TODAY}",
+                content, count=1, flags=re.MULTILINE,
+            )
+            path.write_text(content, encoding="utf-8")
 
     # ── Bibliothèque globale ─────────────────────────────────────────────────
 

@@ -44,8 +44,8 @@ class BaseWriter(ABC):
         pass
 
     @abstractmethod
-    def write_personnages_individuels(self, data: dict):
-        """Crée une fiche individuelle pour chaque nouveau personnage."""
+    def write_personnages_individuels(self, data: dict, ch_num: int):
+        """Crée ou met à jour la fiche individuelle de chaque personnage (liens inter-œuvres)."""
         pass
 
     @abstractmethod

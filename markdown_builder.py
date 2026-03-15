@@ -138,7 +138,7 @@ def build_chapter_md(data: dict, ch_num: int) -> str:
         f"- [[00_Index]] — Index de *{titre}*",
         f"- [[Personnages]] — Tous les personnages",
         f"- [[Themes]] — Tous les thèmes",
-        f"- [[{titre}_citations]] — Toutes les citations",
+        f"- [[Citations]] — Toutes les citations",
         "",
     ])
 
@@ -235,12 +235,19 @@ def build_mouvement_md(mouvement: dict, auteur: str, auteurs_lies: list) -> str:
 # Fiche personnage individuel
 # ---------------------------------------------------------------------------
 
-def build_personnage_md(nom: str, description: str, titre: str, auteur: str) -> str:
+def build_personnage_md(
+    nom: str, description: str, titre: str, auteur: str,
+    ch_num: int = 1, apparition: str = "",
+) -> str:
+    ch_label = f"Ch_{ch_num:02d}"
+    apparition_line = f"- [[{ch_label}]] — {apparition}" if apparition else f"- [[{ch_label}]]"
+
     header = fm(
         ["type/personnage", "statut/importé"],
         nom=nom,
         livre=f"[[{titre}]]",
         auteur=f"[[{auteur}]]",
+        oeuvres_liees=[f"[[{titre}]]"],
         date_creation=TODAY,
         date_modification=TODAY,
     )
@@ -248,11 +255,18 @@ def build_personnage_md(nom: str, description: str, titre: str, auteur: str) -> 
     return "\n".join([
         header, "",
         f"# {nom}", "",
-        f"**Livre :** [[{titre}]]",
+        f"**Livre d'origine :** [[{titre}]]",
         f"**Auteur :** [[{auteur}]]", "",
         "---", "",
         "## Description", "",
         description, "",
+        "---", "",
+        "## Présent dans ces œuvres", "",
+        f"- [[{titre}]] — [[{auteur}]]", "",
+        "---", "",
+        "## Apparitions par œuvre", "",
+        f"### [[{titre}]]", "",
+        apparition_line, "",
     ])
 
 
@@ -291,7 +305,7 @@ def build_index_md(titre: str, auteur: str, mouvement_nom: str, contexte: str) -
         "## Liens", "",
         f"- [[Personnages]]",
         f"- [[Themes]]",
-        f"- [[{titre}_citations]]",
+        f"- [[Citations]]",
         "",
     ])
 

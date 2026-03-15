@@ -109,17 +109,16 @@ Littérature/
 ├── Mouvements/
 │   └── Réalisme.md                 ← fiche mouvement (créée une fois)
 ├── Personnages/
-│   └── Emma Bovary.md              ← fiche personnage (créée une fois)
-├── Livres/
-│   └── Madame Bovary/
-│       ├── 00_Index.md             ← index du livre + liens chapitres
-│       ├── Personnages.md          ← tous les personnages du livre
-│       ├── Themes.md               ← tous les thèmes (#tags)
-│       └── Chapitres/
-│           ├── Ch_01.md
-│           └── Ch_02.md
-└── Citations/
-    └── Madame Bovary_citations.md  ← toutes les citations regroupées
+│   └── Emma Bovary.md              ← fiche personnage + liens inter-œuvres
+└── Livres/
+    └── Madame Bovary/
+        ├── 00_Index.md             ← index du livre + liens chapitres
+        ├── Personnages.md          ← tous les personnages du livre
+        ├── Themes.md               ← tous les thèmes (#tags)
+        ├── Citations.md            ← toutes les citations regroupées
+        └── Chapitres/
+            ├── Ch_01.md
+            └── Ch_02.md
 ```
 
 Tous les fichiers contiennent un **frontmatter YAML** (tags, auteur, date d'import…) pour les requêtes Dataview dans Obsidian.
