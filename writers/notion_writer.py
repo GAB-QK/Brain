@@ -11,6 +11,19 @@ Structure créée automatiquement sous NOTION_ROOT_PAGE_ID :
   🎭 Personnages (database) — une page par personnage (mise à jour à chaque import)
   🏛️ Mouvements (database) — une page par mouvement littéraire (créée une fois)
 
+Noms de propriétés — toujours en anglais pour éviter les conflits avec les
+noms internes Notion (qui garde "Name" pour la propriété title par défaut) :
+
+  Database   | Propriétés
+  -----------|-----------------------------------------------------------
+  Mouvements | Name (title), Period, Description, Context, Created
+  Auteurs    | Name (title), Dates, Movement, Biography, Works, Created
+  Livres     | Name (title), Author, Movement, Chapters, Created
+  Personnages| Name (title), Books, Authors, Description, Appearances,
+             |   Created, Modified
+  Chapitres  | Name (title), Book, Author, Movement, Chapter, Summary,
+             |   Themes, Date, Warnings
+
 Note de compatibilité app.py / cli.py :
   Ces modules appellent rel(path) sur tous les retours, ce qui nécessite des
   objets Path. Le NotionWriter retourne des page_ids (str) ou None selon les
@@ -163,57 +176,59 @@ class NotionWriter(BaseWriter):
 
     def _db_schema(self, name: str) -> dict:
         """Retourne le schéma de propriétés pour une database donnée.
-        Appelé dans l'ordre _CREATION_ORDER : les IDs des dépendances sont déjà dans _db_ids."""
+        Appelé dans l'ordre _CREATION_ORDER : les IDs des dépendances sont déjà dans _db_ids.
+        Toutes les propriétés sont nommées en anglais — Notion garde "Name" pour le
+        champ title par défaut et peut ignorer les noms non-ASCII à la création."""
 
         def _rel(db_name: str) -> dict:
             return {"relation": {"database_id": self._db_ids[db_name]}}
 
         if name == "Mouvements":
             return {
-                "Nom":           {"title": {}},
-                "Epoque":        {"rich_text": {}},
-                "Description":   {"rich_text": {}},
-                "Contexte":      {"rich_text": {}},
-                "Date création": {"date": {}},
+                "Name":        {"title": {}},
+                "Period":      {"rich_text": {}},
+                "Description": {"rich_text": {}},
+                "Context":     {"rich_text": {}},
+                "Created":     {"date": {}},
             }
         if name == "Auteurs":
             return {
-                "Nom":           {"title": {}},
-                "Dates":         {"rich_text": {}},
-                "Mouvement":     _rel("Mouvements"),
-                "Biographie":    {"rich_text": {}},
-                "Oeuvres":       {"rich_text": {}},
-                "Date création": {"date": {}},
+                "Name":      {"title": {}},
+                "Dates":     {"rich_text": {}},
+                "Movement":  _rel("Mouvements"),
+                "Biography": {"rich_text": {}},
+                "Works":     {"rich_text": {}},
+                "Created":   {"date": {}},
             }
         if name == "Livres":
             return {
-                "Titre":         {"title": {}},
-                "Auteur":        _rel("Auteurs"),
-                "Mouvement":     _rel("Mouvements"),
-                "Nb chapitres":  {"number": {}},
-                "Date création": {"date": {}},
+                "Name":     {"title": {}},
+                "Author":   _rel("Auteurs"),
+                "Movement": _rel("Mouvements"),
+                "Chapters": {"number": {}},
+                "Created":  {"date": {}},
             }
         if name == "Personnages":
             return {
-                "Nom":               {"title": {}},
-                "Livres":            _rel("Livres"),
-                "Auteurs":           _rel("Auteurs"),
-                "Description":       {"rich_text": {}},
-                "Apparitions":       {"rich_text": {}},
-                "Date création":     {"date": {}},
-                "Date modification": {"date": {}},
+                "Name":         {"title": {}},
+                "Books":        _rel("Livres"),
+                "Authors":      _rel("Auteurs"),
+                "Description":  {"rich_text": {}},
+                "Appearances":  {"rich_text": {}},
+                "Created":      {"date": {}},
+                "Modified":     {"date": {}},
             }
         if name == "Chapitres":
             return {
-                "Titre":          {"title": {}},
-                "Livre":          _rel("Livres"),
-                "Auteur":         _rel("Auteurs"),
-                "Mouvement":      _rel("Mouvements"),
-                "Chapitre":       {"rich_text": {}},
-                "Resume":         {"rich_text": {}},
-                "Themes":         {"multi_select": {}},
-                "Date import":    {"date": {}},
-                "Avertissements": {"rich_text": {}},
+                "Name":     {"title": {}},
+                "Book":     _rel("Livres"),
+                "Author":   _rel("Auteurs"),
+                "Movement": _rel("Mouvements"),
+                "Chapter":  {"rich_text": {}},
+                "Summary":  {"rich_text": {}},
+                "Themes":   {"multi_select": {}},
+                "Date":     {"date": {}},
+                "Warnings": {"rich_text": {}},
             }
         raise ValueError(f"Database inconnue : {name}")
 
@@ -282,8 +297,8 @@ class NotionWriter(BaseWriter):
         self, db_name: str, title: str, prop: str = "title"
     ) -> Optional[dict]:
         """Cherche une page par son champ title.
-        Notion nomme toujours la propriété title 'title' en interne,
-        quel que soit le nom affiché dans l'UI ('Titre', 'Nom', 'Name'…)."""
+        Notion identifie toujours la propriété title via l'ID interne "title",
+        indépendamment du nom affiché (Name, Nom, Titre…)."""
         resp = self._db_query(
             self._db_ids[db_name],
             filter={"property": prop, "title": {"equals": title}},
@@ -364,19 +379,19 @@ class NotionWriter(BaseWriter):
         mvt_id    = self._get_page_id("Mouvements", mouvement) if mouvement else None
 
         props: dict[str, Any] = {
-            "Titre":          {"title": _rich_text(f"{ch_label} — {chapitre}")},
-            "Chapitre":       {"rich_text": _rich_text(chapitre)},
-            "Resume":         {"rich_text": _rich_text(resume[:2000])},
-            "Themes":         {"multi_select": [{"name": t} for t in themes]},
-            "Date import":    {"date": {"start": TODAY}},
-            "Avertissements": {"rich_text": _rich_text("; ".join(avertissements))},
+            "Name":     {"title": _rich_text(f"{ch_label} — {chapitre}")},
+            "Chapter":  {"rich_text": _rich_text(chapitre)},
+            "Summary":  {"rich_text": _rich_text(resume[:2000])},
+            "Themes":   {"multi_select": [{"name": t} for t in themes]},
+            "Date":     {"date": {"start": TODAY}},
+            "Warnings": {"rich_text": _rich_text("; ".join(avertissements))},
         }
         if livre_id:
-            props["Livre"] = {"relation": [{"id": livre_id}]}
+            props["Book"] = {"relation": [{"id": livre_id}]}
         if auteur_id:
-            props["Auteur"] = {"relation": [{"id": auteur_id}]}
+            props["Author"] = {"relation": [{"id": auteur_id}]}
         if mvt_id:
-            props["Mouvement"] = {"relation": [{"id": mvt_id}]}
+            props["Movement"] = {"relation": [{"id": mvt_id}]}
 
         children: list[dict] = [
             _h1(f"{ch_label} — {chapitre}"),
@@ -424,14 +439,14 @@ class NotionWriter(BaseWriter):
         existing = self._find_page_by_title("Livres", titre)
         if existing is None:
             props: dict[str, Any] = {
-                "Titre":         {"title": _rich_text(titre)},
-                "Nb chapitres":  {"number": 1},
-                "Date création": {"date": {"start": TODAY}},
+                "Name":     {"title": _rich_text(titre)},
+                "Chapters": {"number": 1},
+                "Created":  {"date": {"start": TODAY}},
             }
             if auteur_id:
-                props["Auteur"] = {"relation": [{"id": auteur_id}]}
+                props["Author"] = {"relation": [{"id": auteur_id}]}
             if mvt_id:
-                props["Mouvement"] = {"relation": [{"id": mvt_id}]}
+                props["Movement"] = {"relation": [{"id": mvt_id}]}
 
             livre_page = self._retry(
                 self.notion.pages.create,
@@ -440,8 +455,8 @@ class NotionWriter(BaseWriter):
                 children=[
                     _h1(titre),
                     _para(f"Auteur : {auteur}"),
-                    *([ _para(f"Mouvement : {mouvement}")] if mouvement else []),
-                    *([ _divider(), _h2("Contexte historique"), _para(contexte)] if contexte else []),
+                    *([_para(f"Mouvement : {mouvement}")] if mouvement else []),
+                    *([_divider(), _h2("Contexte historique"), _para(contexte)] if contexte else []),
                     _divider(),
                     _h2("📚 Chapitres"),
                     _bullet(f"{ch_label} — {chapitre}"),
@@ -460,13 +475,13 @@ class NotionWriter(BaseWriter):
             livre_id = existing["id"]
             nb = (
                 existing.get("properties", {})
-                .get("Nb chapitres", {})
+                .get("Chapters", {})
                 .get("number") or 0
             )
             self._retry(
                 self.notion.pages.update,
                 page_id=livre_id,
-                properties={"Nb chapitres": {"number": nb + 1}},
+                properties={"Chapters": {"number": nb + 1}},
             )
             self._append_blocks(livre_id, [_bullet(f"{ch_label} — {chapitre}")])
 
@@ -538,14 +553,14 @@ class NotionWriter(BaseWriter):
         mvt_id = self._get_page_id("Mouvements", mouvement) if mouvement else None
 
         props: dict[str, Any] = {
-            "Nom":           {"title": _rich_text(nom)},
-            "Dates":         {"rich_text": _rich_text(dates)},
-            "Biographie":    {"rich_text": _rich_text(bio[:2000])},
-            "Oeuvres":       {"rich_text": _rich_text(", ".join(oeuvres))},
-            "Date création": {"date": {"start": TODAY}},
+            "Name":      {"title": _rich_text(nom)},
+            "Dates":     {"rich_text": _rich_text(dates)},
+            "Biography": {"rich_text": _rich_text(bio[:2000])},
+            "Works":     {"rich_text": _rich_text(", ".join(oeuvres))},
+            "Created":   {"date": {"start": TODAY}},
         }
         if mvt_id:
-            props["Mouvement"] = {"relation": [{"id": mvt_id}]}
+            props["Movement"] = {"relation": [{"id": mvt_id}]}
 
         children: list[dict] = [
             _h1(nom),
@@ -584,11 +599,11 @@ class NotionWriter(BaseWriter):
             return existing["id"], False
 
         props: dict[str, Any] = {
-            "Nom":           {"title": _rich_text(nom)},
-            "Epoque":        {"rich_text": _rich_text(epoque)},
-            "Description":   {"rich_text": _rich_text(desc[:2000])},
-            "Contexte":      {"rich_text": _rich_text(contexte[:2000])},
-            "Date création": {"date": {"start": TODAY}},
+            "Name":        {"title": _rich_text(nom)},
+            "Period":      {"rich_text": _rich_text(epoque)},
+            "Description": {"rich_text": _rich_text(desc[:2000])},
+            "Context":     {"rich_text": _rich_text(contexte[:2000])},
+            "Created":     {"date": {"start": TODAY}},
         }
 
         children: list[dict] = [
@@ -631,24 +646,24 @@ class NotionWriter(BaseWriter):
 
         results: list[tuple[str, bool]] = []
         for nom in data.get("personnages", []):
-            details        = details_map.get(nom, {})
-            desc           = details.get("description", "")
-            apparition     = details.get("apparition", "")
+            details         = details_map.get(nom, {})
+            desc            = details.get("description", "")
+            apparition      = details.get("apparition", "")
             apparition_line = f"{ch_label} — {apparition}" if apparition else ch_label
 
             existing = self._find_page_by_title("Personnages", nom)
             if existing is None:
                 props: dict[str, Any] = {
-                    "Nom":               {"title": _rich_text(nom)},
-                    "Description":       {"rich_text": _rich_text(desc[:2000])},
-                    "Apparitions":       {"rich_text": _rich_text(apparition_line)},
-                    "Date création":     {"date": {"start": TODAY}},
-                    "Date modification": {"date": {"start": TODAY}},
+                    "Name":        {"title": _rich_text(nom)},
+                    "Description": {"rich_text": _rich_text(desc[:2000])},
+                    "Appearances": {"rich_text": _rich_text(apparition_line)},
+                    "Created":     {"date": {"start": TODAY}},
+                    "Modified":    {"date": {"start": TODAY}},
                 }
                 if livre_id:
-                    props["Livres"] = {"relation": [{"id": livre_id}]}
+                    props["Books"] = {"relation": [{"id": livre_id}]}
                 if auteur_id:
-                    props["Auteurs"] = {"relation": [{"id": auteur_id}]}
+                    props["Authors"] = {"relation": [{"id": auteur_id}]}
 
                 children: list[dict] = [
                     _h1(nom),
@@ -696,33 +711,33 @@ class NotionWriter(BaseWriter):
         """Met à jour une fiche personnage existante (append-only, non destructif)."""
         props = page.get("properties", {})
 
-        # ── 1. Mettre à jour les relations Livres / Auteurs ───────────────────
+        # ── 1. Mettre à jour les relations Books / Authors ────────────────────
         update_props: dict[str, Any] = {
-            "Date modification": {"date": {"start": TODAY}},
+            "Modified": {"date": {"start": TODAY}},
         }
 
         if livre_id:
-            existing_livres = [r["id"] for r in props.get("Livres", {}).get("relation", [])]
+            existing_livres = [r["id"] for r in props.get("Books", {}).get("relation", [])]
             if livre_id not in existing_livres:
-                update_props["Livres"] = {
+                update_props["Books"] = {
                     "relation": [{"id": lid} for lid in existing_livres + [livre_id]]
                 }
 
         if auteur_id:
-            existing_auteurs = [r["id"] for r in props.get("Auteurs", {}).get("relation", [])]
+            existing_auteurs = [r["id"] for r in props.get("Authors", {}).get("relation", [])]
             if auteur_id not in existing_auteurs:
-                update_props["Auteurs"] = {
+                update_props["Authors"] = {
                     "relation": [{"id": aid} for aid in existing_auteurs + [auteur_id]]
                 }
 
-        # ── 2. Mettre à jour le champ Apparitions (rich_text résumé) ─────────
+        # ── 2. Mettre à jour le champ Appearances (rich_text résumé) ──────────
         existing_app = "".join(
             rt.get("plain_text", "")
-            for rt in props.get("Apparitions", {}).get("rich_text", [])
+            for rt in props.get("Appearances", {}).get("rich_text", [])
         )
         if apparition_line not in existing_app:
             new_app = (existing_app + "\n" + apparition_line).strip()
-            update_props["Apparitions"] = {"rich_text": _rich_text(new_app[:2000])}
+            update_props["Appearances"] = {"rich_text": _rich_text(new_app[:2000])}
 
         self._retry(self.notion.pages.update, page_id=page_id, properties=update_props)
 
@@ -771,7 +786,7 @@ class NotionWriter(BaseWriter):
         livre_id = livre_page["id"]
         nb = (
             livre_page.get("properties", {})
-            .get("Nb chapitres", {})
+            .get("Chapters", {})
             .get("number") or 0
         )
 
@@ -779,10 +794,10 @@ class NotionWriter(BaseWriter):
         personnages: list[str] = []
         resp = self._db_query(
             self._db_ids["Personnages"],
-            filter={"property": "Livres", "relation": {"contains": livre_id}},
+            filter={"property": "Books", "relation": {"contains": livre_id}},
         )
         for p in resp.get("results", []):
-            for rt in p.get("properties", {}).get("Nom", {}).get("title", []):
+            for rt in p.get("properties", {}).get("Name", {}).get("title", []):
                 name = rt.get("plain_text", "")
                 if name:
                     personnages.append(name)
@@ -791,7 +806,7 @@ class NotionWriter(BaseWriter):
         themes_set: set[str] = set()
         resp_ch = self._db_query(
             self._db_ids["Chapitres"],
-            filter={"property": "Livre", "relation": {"contains": livre_id}},
+            filter={"property": "Book", "relation": {"contains": livre_id}},
         )
         for ch in resp_ch.get("results", []):
             for opt in ch.get("properties", {}).get("Themes", {}).get("multi_select", []):
