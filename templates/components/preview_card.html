@@ -1,0 +1,34 @@
+{#
+  preview_card — carte de prévisualisation réutilisable.
+
+  Paramètres :
+    title    : titre de section (optionnel)
+    icon     : emoji avant le titre (optionnel)
+    show     : expression Alpine.js pour x-show (optionnel)
+    delay    : classe CSS de délai d'animation, ex. 'delay-[200ms]' (optionnel)
+
+  Usage avec {% call %} pour injecter du contenu :
+    {% from 'components/preview_card.html' import card %}
+    {% call card(title='Résumé', show='showSummary') %}
+      <p x-text="data.resume"></p>
+    {% endcall %}
+#}
+{% macro card(title='', icon='', show='', delay='') -%}
+<div
+  {%- if show %}
+  x-show="{{ show }}"
+  x-transition:enter="transition ease-out duration-300 {{ delay }}"
+  x-transition:enter-start="opacity-0 translate-y-2"
+  x-transition:enter-end="opacity-100 translate-y-0"
+  {%- endif %}
+  class="rounded-xl border p-5"
+  :class="darkMode ? 'bg-[#1a1d27] border-white/5' : 'bg-white border-slate-200 shadow-sm'">
+  {%- if title or icon %}
+  <h3 class="text-xs font-semibold uppercase tracking-widest mb-3"
+    :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+    {%- if icon %}{{ icon }} {% endif %}{{ title }}
+  </h3>
+  {%- endif %}
+  {{- caller() }}
+</div>
+{%- endmacro %}

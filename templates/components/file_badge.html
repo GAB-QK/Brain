@@ -1,0 +1,27 @@
+{#
+  file_badge — badge coloré pour un fichier créé, mis à jour ou existant.
+
+  Statuts possibles :
+    new / created  → vert  (+)
+    update/updated → bleu  (~)
+    existing       → gris  (=)
+
+  Usage statique (Jinja2) :
+    {% from 'components/file_badge.html' import file_badge %}
+    {{ file_badge(status='new', path='Livres/Titre/Ch_01.md') }}
+
+  Usage dynamique (Alpine.js x-for) :
+    Le rendu dans les boucles x-for est géré inline dans index.html
+    car Jinja2 ne peut pas accéder aux variables Alpine.js runtime.
+#}
+{% macro file_badge(status='new', path='') -%}
+<div class="flex items-center gap-2 text-xs">
+  <span class="w-5 h-5 rounded flex items-center justify-center font-mono font-bold shrink-0 text-[10px]
+    {%- if status in ('new', 'created') %} bg-emerald-500/15 text-emerald-400
+    {%- elif status in ('update', 'updated') %} bg-blue-500/15 text-blue-400
+    {%- else %} bg-slate-500/15 text-slate-400{%- endif %}">
+    {%- if status in ('new', 'created') %}+{%- elif status in ('update', 'updated') %}~{%- else %}={%- endif %}
+  </span>
+  <span class="font-mono truncate" :class="darkMode ? 'text-slate-400' : 'text-slate-500'">{{ path }}</span>
+</div>
+{%- endmacro %}

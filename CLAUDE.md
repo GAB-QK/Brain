@@ -13,6 +13,12 @@ Le pipeline : **note brute → API Claude (JSON structuré) → fichiers Markdow
 - **Python 3.11+**
 - **SDK Anthropic** (`anthropic`) — modèle `claude-sonnet-4-20250514`
 - **python-dotenv** — gestion des variables d'environnement
+- **Flask 3.0+** — serveur web backend
+- **Tailwind CSS + DaisyUI** via CDN — composants et styles
+- **Alpine.js** via CDN — interactivité client
+- **markdown-it** via CDN — rendu Markdown temps réel
+- **Lucide Icons** via CDN — icônes
+- **Google Fonts Inter** — typographie
 - **Whisper** (OpenAI) — transcription audio *(à venir)*
 - **Tesseract OCR** — extraction texte depuis image *(à venir)*
 
@@ -28,20 +34,45 @@ VAULT_PATH=/chemin/vers/vault/Obsidian
 
 ```
 Brain/
-├── main.py              ← point d'entrée, orchestration uniquement
+├── app.py               ← serveur Flask (interface web, point d'entrée principal)
+├── main.py              ← point d'entrée terminal, orchestration uniquement
 ├── config.py            ← constantes MODEL, VAULT_PATH et chemins, chargement .env
 ├── claude_api.py        ← SYSTEM_PROMPT, call_claude(), gestion erreurs API
 ├── markdown_builder.py  ← toutes les fonctions build_*() et fm()
 ├── vault_writer.py      ← toutes les fonctions write_*() et update_*(), sanitize()
 ├── input_handler.py     ← show_help(), collect_raw_note() + validation args + stubs Whisper / Tesseract
-└── cli.py               ← preview_and_confirm(), print_report()
+├── cli.py               ← preview_and_confirm(), print_report()
+├── templates/
+│   ├── base.html                    ← layout commun (CDN, polices, Alpine.js)
+│   ├── index.html                   ← page principale (layout deux colonnes)
+│   └── components/
+│       ├── preview_card.html        ← macro Jinja2 : carte de section avec animation
+│       └── file_badge.html          ← macro Jinja2 : badge fichier +/~/=
+└── static/
+    ├── app.js                       ← logique Alpine.js (analyze, import, révélation progressive)
+    └── style.css                    ← overrides Tailwind, animations, scrollbar
 ```
 
 **Ordre des dépendances (pas d'import circulaire) :**
-`config` ← `markdown_builder` ← `vault_writer` ← `main`
-`config` ← `claude_api` ← `main`
+`config` ← `markdown_builder` ← `vault_writer` ← `main` / `app`
+`config` ← `claude_api` ← `main` / `app`
 `config` + `vault_writer` ← `cli` ← `main`
 `input_handler` ← `main` (aucune dépendance projet)
+
+### Routes Flask (`app.py`)
+
+| Route | Méthode | Description |
+|-------|---------|-------------|
+| `/` | GET | Page principale (rendu `index.html`) |
+| `/analyze` | POST | Reçoit `{note}`, appelle `call_claude()`, retourne `{data, ch_num, preview_files}` |
+| `/import` | POST | Reçoit `{data, ch_num}`, appelle toutes les fonctions `write_*`, retourne `{files}` |
+| `/status` | GET | Retourne la liste des livres existants dans le vault `{books}` |
+
+### Lancement
+
+```bash
+python app.py          # http://0.0.0.0:5000 (réseau local)
+```
 
 ---
 
@@ -153,6 +184,11 @@ date_modification: 2026-03-14  # mis à jour automatiquement à chaque append
 - [x] Correction du bug de dédoublonnage des thèmes (vérification sur la forme stockée `#theme_slug`)
 - [x] Champ `avertissements` dans le JSON Claude — anomalies détectées dans la note (personnage anachronique, confusion d'auteur, etc.), affiché dans le terminal avant confirmation
 - [x] Verbosité proportionnelle : `resume` (5-10 phrases si riche), `contexte_historique_oeuvre`, `mouvement_litteraire.description/contexte_historique`, `fiche_auteur.biographie` guidés par des règles de profondeur
+- [x] Interface web Flask — layout deux colonnes, dark mode par défaut, aperçu progressif, toast d'import
+- [x] Routes Flask : `GET /`, `POST /analyze`, `POST /import`, `GET /status`
+- [x] Révélation progressive des sections de l'aperçu (résumé → personnages → thèmes → citations → avertissements → fichiers → bouton)
+- [x] Badges fichiers colorés : vert `+` nouveau, bleu `~` mis à jour, gris `=` existant
+- [x] Accessible en réseau local (`0.0.0.0:5000`) depuis smartphone ou autre appareil
 
 ## Prochaines étapes
 

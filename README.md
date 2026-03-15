@@ -47,15 +47,37 @@ VAULT_PATH=/chemin/vers/ton/vault/Obsidian
 
 ## Usage
 
+### Interface web (recommandée)
+
+```bash
+python app.py
+```
+
+Ouvre [http://localhost:5000](http://localhost:5000) dans ton navigateur (ou depuis n'importe quel appareil sur le même réseau Wi-Fi : `http://<IP-locale>:5000`).
+
+```
+┌───────────────────────┬─────────────────────────────┐
+│  SAISIE               │   APERÇU                    │
+│                       │                             │
+│  [zone de texte]      │   Titre — Chapitre X        │
+│                       │   Auteur · Mouvement        │
+│  [✨ Analyser]        │   Résumé / Personnages /    │
+│                       │   Thèmes / Citations        │
+│                       │   ⚠️ Avertissements          │
+│                       │   📁 Fichiers générés       │
+│                       │   [🗂️ Importer dans Obsidian]│
+└───────────────────────┴─────────────────────────────┘
+```
+
+### Interface terminal (fallback)
+
 ```bash
 python main.py                    # saisie interactive (Ctrl+D pour terminer)
 python main.py ma_note.txt        # depuis un fichier texte
 python main.py --help             # affiche l'aide complète
 ```
 
-Le script affiche un aperçu des fichiers qui seront créés ou mis à jour, puis demande une confirmation avant d'écrire quoi que ce soit dans le vault.
-
-### Validation des arguments
+### Validation des arguments (terminal)
 
 | Cas | Message |
 |-----|---------|
@@ -103,13 +125,23 @@ Tous les liens internes utilisent la syntaxe `[[Nom]]` sans extension.
 
 ```
 Brain/
-├── main.py              ← point d'entrée : python main.py
+├── app.py               ← serveur Flask (interface web)
+├── main.py              ← point d'entrée terminal : python main.py
 ├── config.py            ← constantes et chemins vault
 ├── claude_api.py        ← appel API + prompt système
 ├── markdown_builder.py  ← génération du Markdown
 ├── vault_writer.py      ← écriture dans Obsidian
 ├── input_handler.py     ← lecture note (texte, futur: audio, OCR)
-└── cli.py               ← affichage terminal et confirmation
+├── cli.py               ← affichage terminal et confirmation
+├── templates/
+│   ├── base.html                    ← layout commun (CDN, polices)
+│   ├── index.html                   ← page principale
+│   └── components/
+│       ├── preview_card.html        ← macro Jinja2 : carte de section
+│       └── file_badge.html          ← macro Jinja2 : badge fichier
+└── static/
+    ├── app.js                       ← logique Alpine.js
+    └── style.css                    ← overrides Tailwind / animations
 ```
 
 ---
@@ -125,6 +157,8 @@ Brain/
 | ✅ | Logique append — jamais d'écrasement des fiches existantes |
 | ✅ | Frontmatter YAML sur tous les fichiers |
 | ✅ | Confirmation terminal avant écriture |
+| ✅ | Interface web Flask (saisie, aperçu, import) |
+| ✅ | Dark/light mode, layout responsive, animations |
 | 🔜 | Import audio (transcription Whisper) |
 | 🔜 | Import image/scan (OCR Tesseract) |
 | 🔜 | Mode batch (dossier de notes) |

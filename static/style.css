@@ -1,0 +1,51 @@
+/* ─── Typographie ─────────────────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Animation slow-pulse (bouton Importer) ──────────────────────────────── */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.82; }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 2.2s ease-in-out infinite;
+}
+
+/* ─── Scrollbar discrète en mode sombre ───────────────────────────────────── */
+[data-theme="dark"] ::-webkit-scrollbar       { width: 5px; height: 5px; }
+[data-theme="dark"] ::-webkit-scrollbar-track { background: transparent; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ─── Skeleton en mode sombre (override DaisyUI) ─────────────────────────── */
+[data-theme="dark"] .skeleton {
+  background:
+    linear-gradient(105deg,
+      rgba(255,255,255,0.03) 25%,
+      rgba(255,255,255,0.07) 50%,
+      rgba(255,255,255,0.03) 75%
+    )
+    rgba(255, 255, 255, 0.04);
+  background-size: 200% 100%;
+  animation: skeleton 1.8s ease infinite;
+}
+
+/* ─── Prose markdown dans l'aperçu ───────────────────────────────────────── */
+.prose p          { margin-bottom: 0.65em; }
+.prose p:last-child { margin-bottom: 0; }
+.prose ul         { padding-left: 1.25em; list-style-type: disc; }
+.prose li         { margin-bottom: 0.25em; }
+
+/* ─── Textarea sans resize handle visible ────────────────────────────────── */
+textarea { resize: none; }
+
+/* ─── KBD compact ────────────────────────────────────────────────────────── */
+.kbd { font-size: 0.65rem; padding: 0.1rem 0.35rem; }
