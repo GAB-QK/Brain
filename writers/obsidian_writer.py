@@ -50,6 +50,18 @@ def next_chapter_number(chapitres_dir: Path) -> int:
     return max(nums) + 1 if nums else 1
 
 
+def _already_present(name: str, text: str) -> bool:
+    """True si `name` ou un nom contenant `name` est déjà dans `text`.
+    Gère les formes courtes : 'Flaubert' matche 'Gustave Flaubert'.
+    """
+    name_lower = name.lower().strip()
+    text_lower = text.lower()
+    if name_lower in text_lower:
+        return True
+    words = name_lower.split()
+    return len(words) >= 1 and all(w in text_lower for w in words)
+
+
 def _update_date_modification(path: Path) -> None:
     """Met à jour date_modification dans le frontmatter YAML du fichier."""
     content = path.read_text(encoding="utf-8")
@@ -224,21 +236,25 @@ class ObsidianWriter(BaseWriter):
             body = content[fm_end:]
 
             for auteur in new_lies:
-                entry = f'  - "[[{auteur}]]"'
-                if f'"[[{auteur}]]"' not in fm:
+                if not _already_present(auteur, fm):
+                    entry = f'  - "[[{auteur}]]"'
                     if "auteurs_lies: []" in fm:
-                        fm = fm.replace("auteurs_lies: []", f"auteurs_lies:\n{entry}", 1)
+                        fm       = fm.replace("auteurs_lies: []", f"auteurs_lies:\n{entry}", 1)
                         modified = True
                     elif re.search(r'^auteurs_lies:\n', fm, re.MULTILINE):
-                        fm = re.sub(
+                        new_fm = re.sub(
                             r'(^auteurs_lies:(?:\n  - "[^"]*")*)',
                             rf'\1\n{entry}',
                             fm, count=1, flags=re.MULTILINE,
                         )
-                        modified = True
+                        if new_fm != fm:
+                            fm       = new_fm
+                            modified = True
                     else:
-                        fm = fm.replace("\naliases:", f'\nauteurs_lies:\n{entry}\naliases:', 1)
-                        modified = True
+                        new_fm = fm.replace("\naliases:", f'\nauteurs_lies:\n{entry}\naliases:', 1)
+                        if new_fm != fm:
+                            fm       = new_fm
+                            modified = True
 
             if modified:
                 content = fm + body
@@ -253,20 +269,20 @@ class ObsidianWriter(BaseWriter):
                 sec       = content[idx:end]
 
                 if "_Non renseigné._" in sec:
-                    new_sec = sec.replace("_Non renseigné._", "")
-                    content = content[:idx] + new_sec + content[end:]
-                    end     = idx + len(new_sec)
-                    sec     = new_sec
+                    new_sec  = sec.replace("_Non renseigné._", "")
+                    content  = content[:idx] + new_sec + content[end:]
+                    end      = idx + len(new_sec)
+                    sec      = new_sec
                     modified = True
 
                 for oeuvre in new_oeuvres:
-                    if f"- {oeuvre}" not in sec:
-                        new_line   = f"\n- {oeuvre}"
-                        insert_at  = idx + len(sec.rstrip("\n"))
-                        content    = content[:insert_at] + new_line + content[insert_at:]
-                        end       += len(new_line)
-                        sec        = content[idx:end]
-                        modified   = True
+                    if not _already_present(oeuvre, sec):
+                        new_line  = f"\n- {oeuvre}"
+                        insert_at = idx + len(sec.rstrip("\n"))
+                        content   = content[:insert_at] + new_line + content[insert_at:]
+                        end      += len(new_line)
+                        sec       = content[idx:end]
+                        modified  = True
 
         # ── 3. Section ## Auteurs du même mouvement : ajouter les auteurs ──
         if new_lies:
@@ -278,20 +294,20 @@ class ObsidianWriter(BaseWriter):
                 sec       = content[idx:end]
 
                 if "_Aucun._" in sec:
-                    new_sec = sec.replace("_Aucun._", "")
-                    content = content[:idx] + new_sec + content[end:]
-                    end     = idx + len(new_sec)
-                    sec     = new_sec
+                    new_sec  = sec.replace("_Aucun._", "")
+                    content  = content[:idx] + new_sec + content[end:]
+                    end      = idx + len(new_sec)
+                    sec      = new_sec
                     modified = True
 
                 for auteur in new_lies:
-                    if f"[[{auteur}]]" not in sec:
-                        new_line   = f"\n- [[{auteur}]]"
-                        insert_at  = idx + len(sec.rstrip("\n"))
-                        content    = content[:insert_at] + new_line + content[insert_at:]
-                        end       += len(new_line)
-                        sec        = content[idx:end]
-                        modified   = True
+                    if not _already_present(auteur, sec):
+                        new_line  = f"\n- [[{auteur}]]"
+                        insert_at = idx + len(sec.rstrip("\n"))
+                        content   = content[:insert_at] + new_line + content[insert_at:]
+                        end      += len(new_line)
+                        sec       = content[idx:end]
+                        modified  = True
 
         # ── 4. date_modification ────────────────────────────────────────────
         if modified:

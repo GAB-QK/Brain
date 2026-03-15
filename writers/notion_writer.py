@@ -54,6 +54,22 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Helpers de déduplication
+# ---------------------------------------------------------------------------
+
+def _already_present(name: str, text: str) -> bool:
+    """True si `name` ou un nom contenant `name` est déjà dans `text`.
+    Gère les formes courtes : 'Flaubert' matche 'Gustave Flaubert'.
+    """
+    name_lower = name.lower().strip()
+    text_lower = text.lower()
+    if name_lower in text_lower:
+        return True
+    words = name_lower.split()
+    return len(words) >= 1 and all(w in text_lower for w in words)
+
+
+# ---------------------------------------------------------------------------
 # Helpers de construction de blocs Notion
 # ---------------------------------------------------------------------------
 
@@ -623,7 +639,8 @@ class NotionWriter(BaseWriter):
                 for rt in props.get("Works", {}).get("rich_text", [])
             )
             existing_list = [w.strip() for w in existing_text.split(",") if w.strip()]
-            to_add = [o for o in new_oeuvres if o not in existing_list]
+            to_add = [o for o in new_oeuvres
+                      if not any(_already_present(o, e) for e in existing_list)]
             if to_add:
                 new_works = ", ".join(existing_list + to_add)
                 update_props["Works"] = {"rich_text": _rich_text(new_works[:2000])}
@@ -640,7 +657,7 @@ class NotionWriter(BaseWriter):
         # ── 3. Corps de la page : œuvres dans ## Œuvres majeures ───────────
         if new_oeuvres:
             all_text        = self._get_all_block_plaintext(page_id)
-            oeuvres_to_add  = [o for o in new_oeuvres if o not in all_text]
+            oeuvres_to_add  = [o for o in new_oeuvres if not _already_present(o, all_text)]
             if oeuvres_to_add:
                 blocks: list[dict] = []
                 if "Œuvres majeures" not in all_text:
