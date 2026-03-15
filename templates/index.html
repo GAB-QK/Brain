@@ -394,14 +394,14 @@
           x-transition:enter-end="opacity-100 translate-y-0">
           <button
             @click="importVault()"
-            :disabled="importing || imported || (data?.avertissements?.length && !warningsConfirmed)"
+            :disabled="importing || imported || ((data?.avertissements?.length ?? 0) > 0 && !warningsConfirmed)"
             class="w-full h-11 rounded-xl font-medium text-sm text-white transition-all flex items-center justify-center gap-2"
             :class="{
               'bg-emerald-500 cursor-default':                                                                     imported,
               'bg-emerald-500/50 cursor-wait':                                                                     importing && !imported,
-              'bg-amber-500/30 cursor-not-allowed':                                                                !importing && !imported && data?.avertissements?.length && !warningsConfirmed,
-              'bg-amber-500 hover:bg-amber-400 active:scale-[.98]':                                               !importing && !imported && data?.avertissements?.length && warningsConfirmed,
-              'bg-emerald-500 hover:bg-emerald-400 active:scale-[.98] animate-pulse-slow':                        !importing && !imported && !data?.avertissements?.length,
+              'bg-amber-500/30 cursor-not-allowed':                                                                !importing && !imported && (data?.avertissements?.length ?? 0) > 0 && !warningsConfirmed,
+              'bg-amber-500 hover:bg-amber-400 active:scale-[.98]':                                               !importing && !imported && (data?.avertissements?.length ?? 0) > 0 && warningsConfirmed,
+              'bg-emerald-500 hover:bg-emerald-400 active:scale-[.98] animate-pulse-slow':                        !importing && !imported && (data?.avertissements?.length ?? 0) === 0,
             }">
             <span x-show="importing && !imported" class="flex items-center gap-2">
               <span class="loading loading-spinner loading-xs"></span>
@@ -412,9 +412,9 @@
             </span>
             <span x-show="!importing && !imported" class="flex items-center gap-2">
               <span x-text="
-                data?.avertissements?.length && !warningsConfirmed
+                (data?.avertissements?.length ?? 0) > 0 && !warningsConfirmed
                   ? '⚠️ Confirme les anomalies d\'abord'
-                  : data?.avertissements?.length && warningsConfirmed
+                  : (data?.avertissements?.length ?? 0) > 0 && warningsConfirmed
                     ? (backend === 'notion' ? '⚠️ Importer malgré les anomalies dans Notion' : '⚠️ Importer malgré les anomalies dans Obsidian')
                     : (backend === 'notion' ? '🔲 Importer dans Notion' : '🗂️ Importer dans Obsidian')
               "></span>

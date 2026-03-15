@@ -80,7 +80,7 @@ Brain/
 | `update_personnages(data)` | Agrège les personnages du livre |
 | `update_themes(data)` | Agrège les thèmes du livre |
 | `update_citations(data, ch_num)` | Agrège les citations du livre |
-| `write_auteur(data)` | Crée la fiche auteur si absente |
+| `write_auteur(data)` | Crée la fiche auteur si absente, sinon l'enrichit progressivement (append-only) |
 | `write_mouvement(data)` | Crée la fiche mouvement si absente |
 | `write_personnages_individuels(data, ch_num)` | Crée ou met à jour les fiches personnages (liens inter-œuvres) |
 | `update_bibliotheque(data)` | Met à jour l'index global |
@@ -174,7 +174,8 @@ Littérature/
 ## Règles de comportement critiques
 
 1. **Ne jamais écraser** `Auteurs/*.md` et `Mouvements/*.md` — créés une seule fois, jamais regénérés
-2. **Personnages** (`Personnages/*.md`) — jamais recréés, mais **mis à jour** à chaque import : nouvelles œuvres ajoutées dans `oeuvres_liees`, `## Présent dans ces œuvres` et `## Apparitions par œuvre` (append strict, rien n'est supprimé)
+2. **Auteurs** (`Auteurs/*.md`) — jamais recréés, mais **enrichis progressivement** à chaque import via `_update_auteur_existing` (append-only, rien n'est supprimé) : nouveaux auteurs liés ajoutés dans `auteurs_lies` (frontmatter) et `## Auteurs du même mouvement`, nouvelles œuvres ajoutées dans `## Œuvres majeures`, `date_modification` mis à jour
+3. **Personnages** (`Personnages/*.md`) — jamais recréés, mais **mis à jour** à chaque import : nouvelles œuvres ajoutées dans `oeuvres_liees`, `## Présent dans ces œuvres` et `## Apparitions par œuvre` (append strict, rien n'est supprimé)
 3. **Toujours valider en terminal** avant toute écriture dans le vault (aperçu + confirmation o/n)
 4. **Liens internes** toujours en syntaxe Obsidian `[[Nom du fichier]]` sans extension `.md`
 5. **Append uniquement** pour `Personnages.md`, `Themes.md`, `Citations.md`, `00_Index.md`, `00_Bibliotheque.md`

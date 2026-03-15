@@ -87,7 +87,9 @@ class ObsidianWriter(BaseWriter):
         """Crée ou met à jour Livres/<Titre>/00_Index.md."""
         titre_safe = sanitize(data["titre"])
         mouvement  = data.get("mouvement_litteraire", {}).get("nom", "")
-        index_path = LIVRES_DIR / titre_safe / "00_Index.md"
+        livre_dir  = LIVRES_DIR / titre_safe
+        livre_dir.mkdir(parents=True, exist_ok=True)
+        index_path = livre_dir / "00_Index.md"
         chapitre   = data.get("chapitre_ou_passage", "")
         new_line   = f"- [[Ch_{ch_num:02d}]] — {chapitre}"
 
@@ -178,7 +180,7 @@ class ObsidianWriter(BaseWriter):
     # ── Auteur ───────────────────────────────────────────────────────────────
 
     def write_auteur(self, data: dict) -> tuple[Path, bool]:
-        """Crée Auteurs/<Nom>.md si absent. Retourne (path, créé)."""
+        """Crée Auteurs/<Nom>.md si absent, sinon l'enrichit. Retourne (path, créé)."""
         AUTEURS_DIR.mkdir(parents=True, exist_ok=True)
         fiche     = data.get("fiche_auteur", {})
         nom       = sanitize(fiche.get("nom", data["auteur"]))
@@ -186,6 +188,7 @@ class ObsidianWriter(BaseWriter):
         path      = AUTEURS_DIR / f"{nom}.md"
 
         if path.exists():
+            self._update_auteur_existing(path, data)
             return path, False
 
         path.write_text(
@@ -193,6 +196,111 @@ class ObsidianWriter(BaseWriter):
             encoding="utf-8",
         )
         return path, True
+
+    def _update_auteur_existing(self, path: Path, data: dict) -> None:
+        """Enrichit une fiche auteur existante (append-only, non destructif).
+
+        Met à jour :
+        - frontmatter auteurs_lies : nouveaux auteurs ajoutés si absents
+        - section ## Œuvres majeures : nouvelles œuvres ajoutées si absentes
+        - section ## Auteurs du même mouvement : nouveaux auteurs ajoutés si absents
+        - date_modification : mis à jour si au moins une modification a eu lieu
+        """
+        fiche       = data.get("fiche_auteur", {})
+        new_oeuvres = fiche.get("oeuvres_majeures", [])
+        new_lies    = data.get("auteurs_lies", [])
+        content     = path.read_text(encoding="utf-8")
+        modified    = False
+        _FM_SEP     = "\n---\n"
+
+        # ── 1. Frontmatter : ajouter les auteurs_lies absents ──────────────
+        try:
+            fm_end = content.index(_FM_SEP, 3)
+        except ValueError:
+            fm_end = -1
+
+        if fm_end != -1 and new_lies:
+            fm   = content[:fm_end]
+            body = content[fm_end:]
+
+            for auteur in new_lies:
+                entry = f'  - "[[{auteur}]]"'
+                if f'"[[{auteur}]]"' not in fm:
+                    if "auteurs_lies: []" in fm:
+                        fm = fm.replace("auteurs_lies: []", f"auteurs_lies:\n{entry}", 1)
+                        modified = True
+                    elif re.search(r'^auteurs_lies:\n', fm, re.MULTILINE):
+                        fm = re.sub(
+                            r'(^auteurs_lies:(?:\n  - "[^"]*")*)',
+                            rf'\1\n{entry}',
+                            fm, count=1, flags=re.MULTILINE,
+                        )
+                        modified = True
+                    else:
+                        fm = fm.replace("\naliases:", f'\nauteurs_lies:\n{entry}\naliases:', 1)
+                        modified = True
+
+            if modified:
+                content = fm + body
+
+        # ── 2. Section ## Œuvres majeures : ajouter les œuvres absentes ────
+        if new_oeuvres:
+            section_hdr = "## Œuvres majeures"
+            if section_hdr in content:
+                idx       = content.index(section_hdr) + len(section_hdr)
+                end_match = re.search(r'\n(?:---|##)', content[idx:])
+                end       = idx + end_match.start() if end_match else len(content)
+                sec       = content[idx:end]
+
+                if "_Non renseigné._" in sec:
+                    new_sec = sec.replace("_Non renseigné._", "")
+                    content = content[:idx] + new_sec + content[end:]
+                    end     = idx + len(new_sec)
+                    sec     = new_sec
+                    modified = True
+
+                for oeuvre in new_oeuvres:
+                    if f"- {oeuvre}" not in sec:
+                        new_line   = f"\n- {oeuvre}"
+                        insert_at  = idx + len(sec.rstrip("\n"))
+                        content    = content[:insert_at] + new_line + content[insert_at:]
+                        end       += len(new_line)
+                        sec        = content[idx:end]
+                        modified   = True
+
+        # ── 3. Section ## Auteurs du même mouvement : ajouter les auteurs ──
+        if new_lies:
+            section_hdr = "## Auteurs du même mouvement"
+            if section_hdr in content:
+                idx       = content.index(section_hdr) + len(section_hdr)
+                end_match = re.search(r'\n(?:---|##)', content[idx:])
+                end       = idx + end_match.start() if end_match else len(content)
+                sec       = content[idx:end]
+
+                if "_Aucun._" in sec:
+                    new_sec = sec.replace("_Aucun._", "")
+                    content = content[:idx] + new_sec + content[end:]
+                    end     = idx + len(new_sec)
+                    sec     = new_sec
+                    modified = True
+
+                for auteur in new_lies:
+                    if f"[[{auteur}]]" not in sec:
+                        new_line   = f"\n- [[{auteur}]]"
+                        insert_at  = idx + len(sec.rstrip("\n"))
+                        content    = content[:insert_at] + new_line + content[insert_at:]
+                        end       += len(new_line)
+                        sec        = content[idx:end]
+                        modified   = True
+
+        # ── 4. date_modification ────────────────────────────────────────────
+        if modified:
+            content = re.sub(
+                r"^(date_modification:\s*)\S+",
+                rf"\g<1>{TODAY}",
+                content, count=1, flags=re.MULTILINE,
+            )
+            path.write_text(content, encoding="utf-8")
 
     # ── Mouvement ────────────────────────────────────────────────────────────
 

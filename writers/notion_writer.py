@@ -566,6 +566,7 @@ class NotionWriter(BaseWriter):
 
         existing = self._find_page_by_title("Auteurs", nom)
         if existing:
+            self._update_auteur_existing(existing["id"], existing, data)
             return existing["id"], False
 
         mvt_id = self._get_page_id("Mouvements", mouvement) if mouvement else None
@@ -599,6 +600,53 @@ class NotionWriter(BaseWriter):
             children=children[:100],
         )
         return page["id"], True
+
+    def _update_auteur_existing(self, page_id: str, page: dict, data: dict) -> None:
+        """Enrichit une fiche auteur existante (append-only, non destructif).
+
+        Met à jour :
+        - propriété Works : nouvelles œuvres ajoutées si absentes (rich_text, séparateur ", ")
+        - propriété Movement : relation mise à jour si vide et mouvement maintenant connu
+        - corps de la page : nouvelles œuvres ajoutées dans ## Œuvres majeures
+        """
+        fiche       = data.get("fiche_auteur", {})
+        new_oeuvres = fiche.get("oeuvres_majeures", [])
+        mouvement   = data.get("mouvement_litteraire", {}).get("nom", "")
+        props       = page.get("properties", {})
+
+        update_props: dict[str, Any] = {}
+
+        # ── 1. Property Works : ajouter les œuvres absentes ────────────────
+        if new_oeuvres:
+            existing_text = "".join(
+                rt.get("plain_text", "")
+                for rt in props.get("Works", {}).get("rich_text", [])
+            )
+            existing_list = [w.strip() for w in existing_text.split(",") if w.strip()]
+            to_add = [o for o in new_oeuvres if o not in existing_list]
+            if to_add:
+                new_works = ", ".join(existing_list + to_add)
+                update_props["Works"] = {"rich_text": _rich_text(new_works[:2000])}
+
+        # ── 2. Property Movement : relier si vide ──────────────────────────
+        if mouvement and not props.get("Movement", {}).get("relation"):
+            mvt_id = self._get_page_id("Mouvements", mouvement)
+            if mvt_id:
+                update_props["Movement"] = {"relation": [{"id": mvt_id}]}
+
+        if update_props:
+            self._retry(self.notion.pages.update, page_id=page_id, properties=update_props)
+
+        # ── 3. Corps de la page : œuvres dans ## Œuvres majeures ───────────
+        if new_oeuvres:
+            all_text        = self._get_all_block_plaintext(page_id)
+            oeuvres_to_add  = [o for o in new_oeuvres if o not in all_text]
+            if oeuvres_to_add:
+                blocks: list[dict] = []
+                if "Œuvres majeures" not in all_text:
+                    blocks += [_divider(), _h2("Œuvres majeures")]
+                blocks += [_bullet(o) for o in oeuvres_to_add]
+                self._append_blocks(page_id, blocks)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Mouvement
