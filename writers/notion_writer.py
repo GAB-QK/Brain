@@ -279,9 +279,11 @@ class NotionWriter(BaseWriter):
             return resp.json()
 
     def _find_page_by_title(
-        self, db_name: str, title: str, prop: str = "Titre"
+        self, db_name: str, title: str, prop: str = "title"
     ) -> Optional[dict]:
-        """Cherche une page dans une database par son champ titre. Retourne la page ou None."""
+        """Cherche une page par son champ title.
+        Notion nomme toujours la propriété title 'title' en interne,
+        quel que soit le nom affiché dans l'UI ('Titre', 'Nom', 'Name'…)."""
         resp = self._db_query(
             self._db_ids[db_name],
             filter={"property": prop, "title": {"equals": title}},
@@ -290,7 +292,7 @@ class NotionWriter(BaseWriter):
         return results[0] if results else None
 
     def _get_page_id(
-        self, db_name: str, title: str, prop: str = "Titre"
+        self, db_name: str, title: str, prop: str = "title"
     ) -> Optional[str]:
         """Retourne l'id d'une page ou None si introuvable."""
         page = self._find_page_by_title(db_name, title, prop)
@@ -358,8 +360,8 @@ class NotionWriter(BaseWriter):
         ch_label       = f"Ch_{ch_num:02d}"
 
         livre_id  = self._get_page_id("Livres", titre)
-        auteur_id = self._get_page_id("Auteurs", auteur, "Nom")
-        mvt_id    = self._get_page_id("Mouvements", mouvement, "Nom") if mouvement else None
+        auteur_id = self._get_page_id("Auteurs", auteur)
+        mvt_id    = self._get_page_id("Mouvements", mouvement) if mouvement else None
 
         props: dict[str, Any] = {
             "Titre":          {"title": _rich_text(f"{ch_label} — {chapitre}")},
@@ -416,8 +418,8 @@ class NotionWriter(BaseWriter):
         chapitre  = data.get("chapitre_ou_passage", f"Ch_{ch_num:02d}")
         ch_label  = f"Ch_{ch_num:02d}"
 
-        auteur_id = self._get_page_id("Auteurs", auteur, "Nom")
-        mvt_id    = self._get_page_id("Mouvements", mouvement, "Nom") if mouvement else None
+        auteur_id = self._get_page_id("Auteurs", auteur)
+        mvt_id    = self._get_page_id("Mouvements", mouvement) if mouvement else None
 
         existing = self._find_page_by_title("Livres", titre)
         if existing is None:
@@ -529,11 +531,11 @@ class NotionWriter(BaseWriter):
         oeuvres   = fiche.get("oeuvres_majeures", [])
         mouvement = data.get("mouvement_litteraire", {}).get("nom", "")
 
-        existing = self._find_page_by_title("Auteurs", nom, "Nom")
+        existing = self._find_page_by_title("Auteurs", nom)
         if existing:
             return existing["id"], False
 
-        mvt_id = self._get_page_id("Mouvements", mouvement, "Nom") if mouvement else None
+        mvt_id = self._get_page_id("Mouvements", mouvement) if mouvement else None
 
         props: dict[str, Any] = {
             "Nom":           {"title": _rich_text(nom)},
@@ -577,7 +579,7 @@ class NotionWriter(BaseWriter):
         desc      = mouvement.get("description", "")
         contexte  = mouvement.get("contexte_historique", "")
 
-        existing = self._find_page_by_title("Mouvements", nom, "Nom")
+        existing = self._find_page_by_title("Mouvements", nom)
         if existing:
             return existing["id"], False
 
@@ -625,7 +627,7 @@ class NotionWriter(BaseWriter):
         }
 
         livre_id  = self._get_page_id("Livres", titre)
-        auteur_id = self._get_page_id("Auteurs", auteur, "Nom")
+        auteur_id = self._get_page_id("Auteurs", auteur)
 
         results: list[tuple[str, bool]] = []
         for nom in data.get("personnages", []):
@@ -634,7 +636,7 @@ class NotionWriter(BaseWriter):
             apparition     = details.get("apparition", "")
             apparition_line = f"{ch_label} — {apparition}" if apparition else ch_label
 
-            existing = self._find_page_by_title("Personnages", nom, "Nom")
+            existing = self._find_page_by_title("Personnages", nom)
             if existing is None:
                 props: dict[str, Any] = {
                     "Nom":               {"title": _rich_text(nom)},
