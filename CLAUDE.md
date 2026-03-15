@@ -52,7 +52,7 @@ Brain/
 │   ├── __init__.py          ← factory get_writer(), exports sanitize / next_chapter_number
 │   ├── base_writer.py       ← classe abstraite BaseWriter (10 méthodes)
 │   ├── obsidian_writer.py   ← ObsidianWriter : écriture fichiers .md dans le vault local
-│   └── notion_writer.py     ← NotionWriter : stubs avec TODO détaillés (à implémenter)
+│   └── notion_writer.py     ← NotionWriter : backend Notion complet (notion-client)
 ├── templates/
 │   ├── base.html                    ← layout commun (CDN, polices, Alpine.js)
 │   ├── index.html                   ← page principale (layout deux colonnes)
@@ -215,6 +215,67 @@ date_modification: 2026-03-14  # mis à jour automatiquement à chaque append
 - [x] Révélation progressive des sections de l'aperçu (résumé → personnages → thèmes → citations → avertissements → fichiers → bouton)
 - [x] Badges fichiers colorés : vert `+` nouveau, bleu `~` mis à jour, gris `=` existant
 - [x] Accessible en réseau local (`0.0.0.0:5000`) depuis smartphone ou autre appareil
+- [x] **Backend Notion** : `NotionWriter` complet (databases auto-créées, relations, citations en sous-pages, personnages inter-œuvres)
+
+## Architecture Notion (WRITER_BACKEND=notion)
+
+Structure créée automatiquement sous `NOTION_ROOT_PAGE_ID` :
+
+```
+📚 Page racine (NOTION_ROOT_PAGE_ID)
+├── 📗 Livres      (database) — une page par livre + sous-page Citations
+├── 📄 Chapitres   (database) — une page par chapitre importé
+├── 👤 Auteurs     (database) — une page par auteur (créée une fois)
+├── 🎭 Personnages (database) — une page par personnage (mise à jour à chaque import)
+└── 🏛️ Mouvements (database) — une page par mouvement (créée une fois)
+```
+
+### Relations inter-databases
+
+| Database    | Propriété   | → Cible     |
+|-------------|-------------|-------------|
+| Chapitres   | Livre       | → Livres    |
+| Chapitres   | Auteur      | → Auteurs   |
+| Chapitres   | Mouvement   | → Mouvements|
+| Livres      | Auteur      | → Auteurs   |
+| Livres      | Mouvement   | → Mouvements|
+| Auteurs     | Mouvement   | → Mouvements|
+| Personnages | Livres      | → Livres (multi) |
+| Personnages | Auteurs     | → Auteurs (multi) |
+
+### Citations en sous-pages
+
+Les citations ne sont PAS une database séparée. Chaque page Livre contient une sous-page `Citations` (child page) alimentée en append à chaque import. Structure du corps de la sous-page :
+```
+# Citations — Titre du livre
+---
+## Chapitre X
+> Citation 1
+> Citation 2
+```
+
+### Comportements Notion vs Obsidian
+
+| Méthode              | Obsidian         | Notion                                   |
+|----------------------|------------------|------------------------------------------|
+| `update_personnages` | Fichier append   | no-op (géré par `write_personnages_individuels`) |
+| `update_themes`      | Fichier append   | no-op (champ `multi_select` sur Chapitres) |
+| `update_bibliotheque`| Fichier append   | no-op (la database Livres est la bibliothèque) |
+| `write_auteur`       | Path             | page_id (str)                            |
+| `write_mouvement`    | Path             | page_id (str)                            |
+
+**Note :** `app.py` et `cli.py` appellent `rel(path)` sur tous les retours, ce qui suppose des objets `Path`. Une mise à jour future sera nécessaire pour afficher les URLs Notion dans l'interface web.
+
+### Initialisation au démarrage
+
+`NotionWriter.__init__()` appelle `_ensure_databases()` qui :
+1. Liste les child_database blocks sous la page racine
+2. Crée les databases manquantes dans l'ordre : Mouvements → Auteurs → Livres → Personnages → Chapitres (ordre respectant les dépendances de relations)
+3. Stocke les IDs dans `self._db_ids`
+
+### Retry automatique (rate limit)
+
+3 tentatives max avec backoff exponentiel (1s, 2s) sur erreur HTTP 429.
 
 ## Prochaines étapes
 
@@ -222,4 +283,4 @@ date_modification: 2026-03-14  # mis à jour automatiquement à chaque append
 - [ ] **Entrée image/scan** : intégration Tesseract OCR pour extraire le texte d'une photo de page
 - [ ] **Mode batch** : traiter plusieurs notes d'un dossier en une seule passe
 - [ ] **Mise à jour des fiches auteur** : enrichissement progressif au fil des imports
-- [ ] **Backend Notion** : implémenter `NotionWriter` (voir TODO dans `writers/notion_writer.py`)
+- [ ] **Compatibilité app.py / cli.py pour Notion** : adapter `rel()` pour afficher les URLs Notion dans l'interface web

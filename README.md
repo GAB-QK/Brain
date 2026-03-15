@@ -142,7 +142,7 @@ Brain/
 │   ├── __init__.py          ← factory get_writer()
 │   ├── base_writer.py       ← interface abstraite BaseWriter
 │   ├── obsidian_writer.py   ← backend Obsidian (fichiers .md locaux)
-│   └── notion_writer.py     ← backend Notion (stubs, à implémenter)
+│   └── notion_writer.py     ← backend Notion (complet, notion-client)
 ├── templates/
 │   ├── base.html                    ← layout commun (CDN, polices)
 │   ├── index.html                   ← page principale
@@ -169,6 +169,56 @@ Brain/
 | ✅ | Confirmation terminal avant écriture |
 | ✅ | Interface web Flask (saisie, aperçu, import) |
 | ✅ | Dark/light mode, layout responsive, animations |
+| ✅ | Backend Notion (databases auto-créées, relations, personnages inter-œuvres) |
 | 🔜 | Import audio (transcription Whisper) |
 | 🔜 | Import image/scan (OCR Tesseract) |
 | 🔜 | Mode batch (dossier de notes) |
+
+---
+
+## Configuration Notion
+
+Pour écrire dans Notion plutôt que dans un vault Obsidian :
+
+### 1. Créer une intégration Notion
+
+1. Va sur [notion.so/my-integrations](https://www.notion.so/my-integrations)
+2. Clique **New integration** → donne-lui un nom (ex. `Carnet de lecture`)
+3. Sélectionne le workspace cible
+4. Copie le **Internal Integration Token** (commence par `ntn_` ou `secret_`)
+
+### 2. Partager la page racine avec l'intégration
+
+1. Dans Notion, crée une page vide qui servira de racine (ex. `📚 Carnet de lecture`)
+2. Ouvre la page → clique sur `···` (menu) → **Connections** → ajoute ton intégration
+3. Copie l'ID de la page depuis l'URL : `notion.so/<workspace>/<PAGE_ID>?...`
+   (l'ID est la suite de 32 caractères hexadécimaux)
+
+### 3. Configurer `.env`
+
+```env
+WRITER_BACKEND=notion
+NOTION_TOKEN=ntn_xxxxxxxxxxxxxxxxxxxx
+NOTION_ROOT_PAGE_ID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+### 4. Premier lancement
+
+```bash
+python app.py   # ou python main.py
+```
+
+Au démarrage, le NotionWriter crée automatiquement les 5 databases manquantes sous la page racine : **Mouvements → Auteurs → Livres → Personnages → Chapitres** (dans cet ordre pour respecter les dépendances de relations).
+
+### Structure créée dans Notion
+
+```
+📚 Page racine
+├── 📗 Livres       ← une page par livre + sous-page Citations
+├── 📄 Chapitres    ← une page par passage importé
+├── 👤 Auteurs      ← une page par auteur (créée une fois)
+├── 🎭 Personnages  ← une page par personnage (mise à jour à chaque import)
+└── 🏛️ Mouvements  ← une page par mouvement (créée une fois)
+```
+
+Les citations sont des **sous-pages** de chaque livre (pas une database séparée).
