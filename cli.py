@@ -57,6 +57,10 @@ def print_report(data: dict, ch_num: int, results: dict) -> None:
     """Affiche le rapport final des fichiers écrits dans le vault."""
 
     def rel(p) -> str:
+        if p is None:
+            return "(no-op)"
+        if isinstance(p, str):
+            return f"notion://page/{p.replace('-', '')}"
         return str(p.relative_to(VAULT_PATH))
 
     def status(created: bool) -> str:

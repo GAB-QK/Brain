@@ -156,24 +156,41 @@ def import_vault():
         perso_ind                      = writer.write_personnages_individuels(data, ch_num)
         bib_path                       = writer.update_bibliotheque(data)
 
-        def rel(p: Path) -> str:
+        def rel(p) -> str | None:
+            if p is None:
+                return None
+            if isinstance(p, str):
+                return f"notion://page/{p.replace('-', '')}"
             return str(p.relative_to(VAULT_PATH))
 
         def st(created: bool) -> str:
             return "created" if created else "existing"
 
-        files = [
-            {"path": rel(ch_path),         "status": "created"},
-            {"path": rel(idx_path),         "status": "updated"},
-            {"path": rel(perso_livre_path), "status": "updated"},
-            {"path": rel(themes_path),      "status": "updated"},
-            {"path": rel(cit_path),         "status": "updated"},
-            {"path": rel(bib_path),         "status": "updated"},
-            {"path": rel(auteur_path),      "status": st(auteur_created)},
-            {"path": rel(mvt_path),         "status": st(mvt_created)},
-        ]
+        files = []
+        for path, status in [
+            (ch_path,     "created"),
+            (idx_path,    "updated"),
+            (auteur_path, st(auteur_created)),
+            (mvt_path,    st(mvt_created)),
+        ]:
+            r = rel(path)
+            if r:
+                files.append({"path": r, "status": status})
+
+        for path, status in [
+            (perso_livre_path, "updated"),
+            (themes_path,      "updated"),
+            (cit_path,         "updated"),
+            (bib_path,         "updated"),
+        ]:
+            r = rel(path)
+            if r:
+                files.append({"path": r, "status": status})
+
         for path, created in perso_ind:
-            files.append({"path": rel(path), "status": st(created)})
+            r = rel(path)
+            if r:
+                files.append({"path": r, "status": st(created)})
 
         return jsonify({"files": files})
     except Exception as exc:
